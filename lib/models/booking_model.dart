@@ -1,0 +1,215 @@
+enum BookingType { service, membership }
+
+enum BookingStatus { pending, confirmed, completed, cancelled }
+
+class BookingModel {
+  final String id;
+  final String gymId;
+  final String gymName;
+  final String gymAddress;
+  final BookingType type;
+  final BookingStatus status;
+  final String? serviceId;
+  final String? serviceName;
+  final int? slots;
+  final DateTime bookingDate;
+  final String? timeSlot;
+  final String? membershipType;
+  final String bookingFor;
+  final double amount;
+  final double? visitingFee;
+  final double? tax;
+  final double totalAmount;
+  final String? paymentMethod;
+  final String? paymentId;
+  final DateTime createdAt;
+  final String? instructions;
+
+  BookingModel({
+    required this.id,
+    required this.gymId,
+    required this.gymName,
+    required this.gymAddress,
+    required this.type,
+    required this.status,
+    this.serviceId,
+    this.serviceName,
+    this.slots,
+    required this.bookingDate,
+    this.timeSlot,
+    this.membershipType,
+    required this.bookingFor,
+    required this.amount,
+    this.visitingFee,
+    this.tax,
+    required this.totalAmount,
+    this.paymentMethod,
+    this.paymentId,
+    required this.createdAt,
+    this.instructions,
+  });
+
+  factory BookingModel.fromJson(Map<String, dynamic> json) {
+    return BookingModel(
+      id: json['id'] ?? '',
+      gymId: json['gym_id'] ?? json['gymId'] ?? '',
+      gymName: json['gym_name'] ?? json['gymName'] ?? '',
+      gymAddress: json['gym_address'] ?? json['gymAddress'] ?? '',
+      type: BookingType.values.firstWhere(
+        (e) => e.name == (json['type'] ?? 'service'),
+        orElse: () => BookingType.service,
+      ),
+      status: BookingStatus.values.firstWhere(
+        (e) => e.name == (json['status'] ?? 'pending'),
+        orElse: () => BookingStatus.pending,
+      ),
+      serviceId: json['service_id'] ?? json['serviceId'],
+      serviceName: json['service_name'] ?? json['serviceName'],
+      slots: json['slots'],
+      bookingDate: DateTime.parse(json['booking_date'] ?? json['bookingDate']),
+      timeSlot: json['time_slot'] ?? json['timeSlot'],
+      membershipType: json['membership_type'] ?? json['membershipType'],
+      bookingFor: json['booking_for'] ?? json['bookingFor'] ?? '',
+      amount: (json['amount'] ?? 0).toDouble(),
+      visitingFee: json['visiting_fee']?.toDouble(),
+      tax: json['tax']?.toDouble(),
+      totalAmount: (json['total_amount'] ?? json['totalAmount'] ?? 0).toDouble(),
+      paymentMethod: json['payment_method'] ?? json['paymentMethod'],
+      paymentId: json['payment_id'] ?? json['paymentId'],
+      createdAt: DateTime.parse(
+        json['created_at'] ?? json['createdAt'] ?? DateTime.now().toIso8601String(),
+      ),
+      instructions: json['instructions'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'gym_id': gymId,
+      'gym_name': gymName,
+      'gym_address': gymAddress,
+      'type': type.name,
+      'status': status.name,
+      'service_id': serviceId,
+      'service_name': serviceName,
+      'slots': slots,
+      'booking_date': bookingDate.toIso8601String(),
+      'time_slot': timeSlot,
+      'membership_type': membershipType,
+      'booking_for': bookingFor,
+      'amount': amount,
+      'visiting_fee': visitingFee,
+      'tax': tax,
+      'total_amount': totalAmount,
+      'payment_method': paymentMethod,
+      'payment_id': paymentId,
+      'created_at': createdAt.toIso8601String(),
+      'instructions': instructions,
+    };
+  }
+}
+
+class TimeSlotModel {
+  final String id;
+  final String label;
+  final String startTime;
+  final String endTime;
+  final bool isAvailable;
+  final String period;
+
+  TimeSlotModel({
+    required this.id,
+    required this.label,
+    required this.startTime,
+    required this.endTime,
+    this.isAvailable = true,
+    required this.period,
+  });
+
+  factory TimeSlotModel.fromJson(Map<String, dynamic> json) {
+    return TimeSlotModel(
+      id: json['id'] ?? '',
+      label: json['label'] ?? '',
+      startTime: json['start_time'] ?? json['startTime'] ?? '',
+      endTime: json['end_time'] ?? json['endTime'] ?? '',
+      isAvailable: json['is_available'] ?? json['isAvailable'] ?? true,
+      period: json['period'] ?? 'morning',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'label': label,
+      'start_time': startTime,
+      'end_time': endTime,
+      'is_available': isAvailable,
+      'period': period,
+    };
+  }
+}
+
+class SubscriptionModel {
+  final String id;
+  final String type; // single_gym, multi_gym
+  final String duration; // 1_day, 1_week, 1_month, 3_months, 1_year
+  final String durationLabel;
+  final int price;
+  final int? originalPrice;
+  final String? gymId;
+  final String? gymName;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final bool isActive;
+
+  SubscriptionModel({
+    required this.id,
+    required this.type,
+    required this.duration,
+    required this.durationLabel,
+    required this.price,
+    this.originalPrice,
+    this.gymId,
+    this.gymName,
+    this.startDate,
+    this.endDate,
+    this.isActive = false,
+  });
+
+  factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
+    return SubscriptionModel(
+      id: json['id'] ?? '',
+      type: json['type'] ?? 'single_gym',
+      duration: json['duration'] ?? '',
+      durationLabel: json['duration_label'] ?? json['durationLabel'] ?? '',
+      price: json['price'] ?? 0,
+      originalPrice: json['original_price'] ?? json['originalPrice'],
+      gymId: json['gym_id'] ?? json['gymId'],
+      gymName: json['gym_name'] ?? json['gymName'],
+      startDate: json['start_date'] != null
+          ? DateTime.parse(json['start_date'])
+          : null,
+      endDate: json['end_date'] != null
+          ? DateTime.parse(json['end_date'])
+          : null,
+      isActive: json['is_active'] ?? json['isActive'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'duration': duration,
+      'duration_label': durationLabel,
+      'price': price,
+      'original_price': originalPrice,
+      'gym_id': gymId,
+      'gym_name': gymName,
+      'start_date': startDate?.toIso8601String(),
+      'end_date': endDate?.toIso8601String(),
+      'is_active': isActive,
+    };
+  }
+}
