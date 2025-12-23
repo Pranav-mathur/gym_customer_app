@@ -265,23 +265,29 @@ class MockData {
     NotificationModel(
       id: '1',
       title: 'Appointment confirmed',
+      message: 'Your booking for Yoga at Zinga Fitness has been confirmed for Dec 20, 2025',
       type: 'booking',
       createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 4)),
       isRead: false,
+      actionType: 'booking_detail',
+      actionId: 'booking_1',
     ),
     NotificationModel(
       id: '2',
       title: 'Attendance Marked',
+      message: 'You checked in at Zinga Fitness at 09:15 AM',
       type: 'attendance',
       createdAt: DateTime.now().subtract(const Duration(hours: 2)),
       isRead: false,
+      actionType: 'attendance_detail',
+      actionId: 'att_1',
     ),
   ];
 
   static Map<DateTime, bool> get attendanceData {
     final data = <DateTime, bool>{};
     final now = DateTime.now();
-    
+
     // Generate attendance for current month
     for (int i = 1; i <= now.day; i++) {
       final date = DateTime(now.year, now.month, i);
@@ -291,7 +297,7 @@ class MockData {
         data[date] = i % 4 != 0; // Mark absent every 4th day
       }
     }
-    
+
     return data;
   }
 

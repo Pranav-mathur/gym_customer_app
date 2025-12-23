@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../data/mock_data.dart';
+import '../models/user_model.dart';
 import '../services/home_service.dart';
+import '../services/user_service.dart';
 
 enum ViewMode { list, map }
 
@@ -13,6 +15,10 @@ class HomeProvider extends ChangeNotifier {
   String _searchQuery = '';
   ViewMode _viewMode = ViewMode.list;
 
+  // User profile
+  UserModel? _userProfile;
+  bool _isLoadingProfile = false;
+
   // Filters
   Set<String> _selectedFacilities = {};
   String _selectedSort = 'Relevance';
@@ -22,8 +28,8 @@ class HomeProvider extends ChangeNotifier {
   double? _minRating;
 
   List<GymModel> get gyms => _filteredGyms.isEmpty &&
-          _searchQuery.isEmpty &&
-          _selectedFacilities.isEmpty
+      _searchQuery.isEmpty &&
+      _selectedFacilities.isEmpty
       ? _gyms
       : _filteredGyms;
   bool get isLoading => _isLoading;
@@ -36,12 +42,34 @@ class HomeProvider extends ChangeNotifier {
   int get filteredCount => _filteredGyms.length;
   bool get hasActiveFilters =>
       _selectedFacilities.isNotEmpty ||
-      _minFee != null ||
-      _maxFee != null ||
-      _maxDistance != null ||
-      _minRating != null;
+          _minFee != null ||
+          _maxFee != null ||
+          _maxDistance != null ||
+          _minRating != null;
+
+  // User profile getters
+  UserModel? get userProfile => _userProfile;
+  bool get isLoadingProfile => _isLoadingProfile;
+
+  // Load user profile from API
+  Future<void> loadUserProfile(String token) async {
+    try {
+      _isLoadingProfile = true;
+      notifyListeners();
+
+      _userProfile = await UserService().getProfile(token);
+
+      _isLoadingProfile = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoadingProfile = false;
+      debugPrint("❌ Load User Profile Error: $e");
+      notifyListeners();
+    }
+  }
 
   Future<void> loadGyms({
+    String? token,
     double? latitude,
     double? longitude,
   }) async {
@@ -52,7 +80,13 @@ class HomeProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
+      // If no token provided, throw error
+      if (token == null || token.isEmpty) {
+        throw Exception("Authentication required. Please login again.");
+      }
+
       final gyms = await HomeService().fetchGyms(
+        token: token,  // ✅ Pass token to service
         latitude: latitude,
         longitude: longitude,
       );
@@ -65,8 +99,9 @@ class HomeProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+      debugPrint("❌ Load Gyms Error: $e");
     }
   }
 
@@ -161,7 +196,7 @@ class HomeProvider extends ChangeNotifier {
           if (facility == '24x7') return gym.is24x7;
           // Check other facilities
           return gym.facilities.any((f) =>
-              f.name.toLowerCase() == facility.toLowerCase() && f.isAvailable);
+          f.name.toLowerCase() == facility.toLowerCase() && f.isAvailable);
         });
       }).toList();
     }
@@ -203,7 +238,7 @@ class HomeProvider extends ChangeNotifier {
         _filteredGyms.sort((a, b) => a.distance.compareTo(b.distance));
         break;
       default:
-        // Relevance - keep original order
+      // Relevance - keep original order
         break;
     }
   }

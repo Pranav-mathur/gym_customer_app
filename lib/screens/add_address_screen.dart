@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../core/constants/constants.dart';
 import '../core/widgets/widgets.dart';
 import '../providers/providers.dart';
-import '../models/models.dart';
 import 'main_screen.dart';
 
 class AddAddressScreen extends StatefulWidget {
@@ -26,7 +25,10 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   final _houseFlatController = TextEditingController();
   final _roadAreaController = TextEditingController();
   final _streetCityController = TextEditingController();
-  String _selectedLabel = 'Other';
+  String _selectedLabel = 'Home';
+  bool _isDefault = false;
+  bool _isSaving = false;
+
   final List<String> _labels = ['Home', 'Work', 'Other'];
 
   @override
@@ -45,32 +47,96 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
     super.dispose();
   }
 
-  void _saveAddress() {
-    if (_houseFlatController.text.isEmpty ||
-        _roadAreaController.text.isEmpty ||
-        _streetCityController.text.isEmpty) {
+  Future<void> _saveAddress() async {
+    // Validation
+    if (_houseFlatController.text.trim().isEmpty ||
+        _roadAreaController.text.trim().isEmpty ||
+        _streetCityController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
+        const SnackBar(
+          content: Text('Please fill all fields'),
+          backgroundColor: AppColors.error,
+        ),
       );
       return;
     }
 
-    final address = AddressModel(
-      houseFlat: _houseFlatController.text.trim(),
-      roadArea: _roadAreaController.text.trim(),
-      streetCity: _streetCityController.text.trim(),
-      label: _selectedLabel,
-      latitude: widget.latitude,
-      longitude: widget.longitude,
-    );
+    // Check if location is available
+    if (widget.latitude == null || widget.longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location not available. Please go back and select location.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
 
-    context.read<LocationProvider>().saveAddress(address);
+    setState(() => _isSaving = true);
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const MainScreen()),
-      (route) => false,
-    );
+    try {
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.token == null) {
+        throw Exception("Authentication required. Please login again.");
+      }
+
+      final addressProvider = context.read<AddressProvider>();
+
+      // Call API to add address
+      final success = await addressProvider.addAddress(
+        token: authProvider.token!,
+        houseFlat: _houseFlatController.text.trim(),
+        roadArea: _roadAreaController.text.trim(),
+        streetCity: _streetCityController.text.trim(),
+        label: _selectedLabel,
+        latitude: widget.latitude!,
+        longitude: widget.longitude!,
+        isDefault: _isDefault,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Address added successfully!'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Navigate to home screen
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MainScreen()),
+              (route) => false,
+        );
+      } else {
+        // Show error message
+        final error = addressProvider.error ?? 'Failed to add address';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        setState(() => _isSaving = false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isSaving = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override
@@ -98,19 +164,22 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Location icon
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceLight,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: const Icon(
-                        Icons.location_on_outlined,
-                        color: AppColors.textPrimary,
-                        size: 28,
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Icon(
+                          Icons.location_on_outlined,
+                          color: AppColors.textPrimary,
+                          size: 28,
+                        ),
                       ),
                     ),
                     AppSpacing.h24,
@@ -118,7 +187,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     // House/Flat/Block
                     CustomTextField(
                       label: 'House/Flat/Block',
-                      hint: 'Enter house/flat/block',
+                      hint: 'Flat 203, Building A',
                       controller: _houseFlatController,
                       textInputAction: TextInputAction.next,
                     ),
@@ -127,7 +196,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     // Apartment/Road/Area
                     CustomTextField(
                       label: 'Apartment/Road/Area',
-                      hint: 'Enter apartment/road/area',
+                      hint: 'Koramangala 5th Block',
                       controller: _roadAreaController,
                       textInputAction: TextInputAction.next,
                     ),
@@ -136,7 +205,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     // Street and City
                     CustomTextField(
                       label: 'Street and City',
-                      hint: 'Enter street and city',
+                      hint: 'Bengaluru, Karnataka',
                       controller: _streetCityController,
                       textInputAction: TextInputAction.done,
                       maxLines: 2,
@@ -144,35 +213,63 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                     AppSpacing.h20,
 
                     // Save address as
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Save address as',
-                          style: AppTextStyles.labelMedium.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        AppSpacing.h12,
-                        Row(
-                          children: [
-                            _buildLabelChip('Other'),
-                            // Add more if needed
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: () {
-                                // Clear the label
-                                setState(() => _selectedLabel = 'Other');
-                              },
-                              child: const Icon(
-                                Icons.cancel_outlined,
-                                color: AppColors.textSecondary,
-                                size: 20,
-                              ),
+                    Text(
+                      'Save address as',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    AppSpacing.h12,
+                    Row(
+                      children: _labels.map((label) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: _buildLabelChip(label),
+                        );
+                      }).toList(),
+                    ),
+                    AppSpacing.h20,
+
+                    // Set as default address
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.inputBackground,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Set as default address',
+                                  style: AppTextStyles.labelMedium.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                AppSpacing.h4,
+                                Text(
+                                  'This address will be used by default for deliveries',
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          AppSpacing.w12,
+                          Switch(
+                            value: _isDefault,
+                            onChanged: (value) {
+                              setState(() => _isDefault = value);
+                            },
+                            activeColor: AppColors.primaryGreen,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -184,8 +281,8 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
           Padding(
             padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
             child: PrimaryButton(
-              text: 'Save Address',
-              onPressed: _saveAddress,
+              text: _isSaving ? 'Saving...' : 'Save Address',
+              onPressed: _isSaving ? null : _saveAddress,
             ),
           ),
         ],

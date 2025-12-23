@@ -32,6 +32,35 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             );
           }
 
+          if (provider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppColors.error,
+                    size: 48,
+                  ),
+                  AppSpacing.h16,
+                  Text(
+                    provider.error!,
+                    style: const TextStyle(color: AppColors.textSecondary),
+                    textAlign: TextAlign.center,
+                  ),
+                  AppSpacing.h16,
+                  TextButton(
+                    onPressed: () {
+                      provider.clearError();
+                      provider.loadBookings();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
           if (provider.bookings.isEmpty) {
             return const Center(
               child: Text(
@@ -60,8 +89,8 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                   borderRadius: index == 0
                       ? const BorderRadius.vertical(top: Radius.circular(16))
                       : index == provider.bookings.length - 1
-                          ? const BorderRadius.vertical(bottom: Radius.circular(16))
-                          : null,
+                      ? const BorderRadius.vertical(bottom: Radius.circular(16))
+                      : null,
                   border: Border.all(color: AppColors.border.withOpacity(0.3)),
                 ),
                 child: Row(
@@ -71,12 +100,12 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            booking.serviceName ?? 'Membership Renewal',
+                            booking.serviceName ?? booking.membershipType ?? 'Booking',
                             style: AppTextStyles.labelMedium,
                           ),
                           AppSpacing.h4,
                           Text(
-                            AppFormatters.formatDateWithTime(booking.createdAt),
+                            AppFormatters.formatDateWithTime(booking.bookingDate),
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),

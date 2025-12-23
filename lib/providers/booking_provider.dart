@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
 import '../data/mock_data.dart';
+import '../services/booking_service.dart';
 
 class BookingProvider extends ChangeNotifier {
+  final BookingService _bookingService = BookingService();
+
   // Booking state
   GymModel? _selectedGym;
   ServiceModel? _selectedService;
@@ -20,6 +24,7 @@ class BookingProvider extends ChangeNotifier {
   List<BookingModel> _bookings = [];
   List<TimeSlotModel> _availableSlots = [];
   bool _isLoading = false;
+  bool _isLoadingSlots = false;
   String? _error;
 
   // Getters
@@ -35,6 +40,7 @@ class BookingProvider extends ChangeNotifier {
   List<BookingModel> get bookings => _bookings;
   List<TimeSlotModel> get availableSlots => _availableSlots;
   bool get isLoading => _isLoading;
+  bool get isLoadingSlots => _isLoadingSlots;
   String? get error => _error;
 
   // Price calculations
@@ -54,7 +60,7 @@ class BookingProvider extends ChangeNotifier {
     _selectedDate = DateTime.now();
     _selectedTimeSlot = null;
     _slotCount = 1;
-    _loadAvailableSlots();
+    _availableSlots = [];  // Clear slots, will be loaded when service is selected
     notifyListeners();
   }
 
@@ -67,7 +73,7 @@ class BookingProvider extends ChangeNotifier {
   // Select date
   void selectDate(DateTime date) {
     _selectedDate = date;
-    _loadAvailableSlots();
+    // Note: Caller should call loadAvailableSlots(token) after this
     notifyListeners();
   }
 
@@ -129,33 +135,95 @@ class BookingProvider extends ChangeNotifier {
         .toList();
   }
 
-  // Load available time slots
-  void _loadAvailableSlots() {
-    _availableSlots = MockData.timeSlots;
-    notifyListeners();
+  // Load available time slots from API
+  Future<void> loadAvailableSlots(String token) async {
+    if (_selectedGym == null || _selectedService == null || _selectedDate == null) {
+      debugPrint("❌ Cannot load slots: Missing gym, service, or date");
+      return;
+    }
+
+    try {
+      _isLoadingSlots = true;
+      _error = null;
+      notifyListeners();
+
+      // Format date as YYYY-MM-DD
+      final dateStr = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+
+      _availableSlots = await _bookingService.getTimeSlots(
+        token: token,
+        gymId: _selectedGym!.id,
+        serviceId: _selectedService!.id,
+        date: dateStr,
+      );
+
+      _isLoadingSlots = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoadingSlots = false;
+      _error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      debugPrint("❌ Load Time Slots Error: $e");
+    }
   }
 
   // Load user bookings
-  Future<void> loadBookings() async {
+  Future<void> loadBookings({
+    String status = 'all',
+    String type = 'all',
+    int page = 1,
+    int limit = 20,
+  }) async {
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
-      await Future.delayed(const Duration(milliseconds: 500));
-      _bookings = MockData.bookings;
+      // Get token from storage - assuming it's available
+      // Note: You may need to pass token as parameter if not accessible here
+      final token = await _getAuthToken();
+
+      if (token == null) {
+        throw Exception("Please login to view bookings");
+      }
+
+      _bookings = await _bookingService.getUserBookings(
+        token: token,
+        status: status,
+        type: type,
+        page: page,
+        limit: limit,
+      );
 
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _isLoading = false;
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+      debugPrint("❌ Load Bookings Error: $e");
+    }
+  }
+
+  // Helper method to get auth token
+  // You'll need to adjust this based on how you store/access the token
+  Future<String?> _getAuthToken() async {
+    // Option 1: If you have access to AuthProvider token
+    // return authProvider.token;
+
+    // Option 2: If you use FlutterSecureStorage directly
+    try {
+      final storage = const FlutterSecureStorage();
+      return await storage.read(key: 'auth_token');
+    } catch (e) {
+      debugPrint("Error getting auth token: $e");
+      return null;
     }
   }
 
   // Create service booking
   Future<BookingModel?> createServiceBooking() async {
-    if (_selectedGym == null || _selectedService == null || 
+    if (_selectedGym == null || _selectedService == null ||
         _selectedDate == null || _selectedTimeSlot == null) {
       _error = 'Please complete all booking details';
       notifyListeners();

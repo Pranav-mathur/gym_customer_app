@@ -34,11 +34,15 @@ class SideMenuScreen extends StatelessWidget {
               context,
               Icons.person_outline,
               'My Profile',
-              () {
-                Navigator.pop(context);
+                  () {
+                Navigator.pop(context); // Close drawer
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const ProfileScreen(
+                      isEditMode: true, // ✅ Pass isEditMode=true to fetch data from API
+                    ),
+                  ),
                 );
               },
             ),
@@ -46,7 +50,7 @@ class SideMenuScreen extends StatelessWidget {
               context,
               Icons.receipt_long_outlined,
               'My Bookings',
-              () {
+                  () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
@@ -58,7 +62,7 @@ class SideMenuScreen extends StatelessWidget {
               context,
               Icons.diamond_outlined,
               'My Subscription',
-              () {
+                  () {
                 Navigator.pop(context);
               },
             ),
@@ -83,7 +87,7 @@ class SideMenuScreen extends StatelessWidget {
               context,
               Icons.logout,
               'Logout',
-              () => _showLogoutDialog(context),
+                  () => _showLogoutDialog(context),
             ),
           ],
         ),
@@ -92,11 +96,11 @@ class SideMenuScreen extends StatelessWidget {
   }
 
   Widget _buildMenuItem(
-    BuildContext context,
-    IconData icon,
-    String title,
-    VoidCallback onTap,
-  ) {
+      BuildContext context,
+      IconData icon,
+      String title,
+      VoidCallback onTap,
+      ) {
     return ListTile(
       leading: Icon(icon, color: AppColors.textPrimary, size: 22),
       title: Text(title, style: AppTextStyles.bodyMedium),
@@ -112,29 +116,37 @@ class SideMenuScreen extends StatelessWidget {
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.cardBackground,
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              // ✅ Get provider references BEFORE popping
+              final authProvider = context.read<AuthProvider>();
+              final homeProvider = context.read<HomeProvider>();
+
+              // Close dialog
+              Navigator.pop(dialogContext);
 
               // Perform logout
-              await context.read<AuthProvider>().logout();
+              await authProvider.logout();
 
               // Optional: reset home state
-              context.read<HomeProvider>().clearFilters();
+              homeProvider.clearFilters();
 
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
+              // Navigate to login screen (check if widget is still mounted)
+              if (context.mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              }
             },
             child: Text(
               'Logout',

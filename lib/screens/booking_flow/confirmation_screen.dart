@@ -20,9 +20,16 @@ class ConfirmationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const CustomAppBar(title: 'Confirmation'),
+      appBar: const CustomAppBar(title: 'Booking Confirmation'),
       body: Consumer<BookingProvider>(
         builder: (context, provider, child) {
+          final selectedDate = provider.selectedDate ?? DateTime.now();
+          final selectedSlot = provider.selectedTimeSlot;
+          final slotCount = provider.slotCount;
+
+          // Format date
+          final dateStr = '${_getDayName(selectedDate.weekday)}, ${selectedDate.day} ${_getMonthName(selectedDate.month)} ${selectedDate.year}';
+
           return Column(
             children: [
               Expanded(
@@ -31,9 +38,75 @@ class ConfirmationScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Services section
+                      // Gym Details
                       Text(
-                        'Services',
+                        'Gym Details',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      AppSpacing.h8,
+                      _buildSection(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceLight,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: gym.images.isNotEmpty
+                                      ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      gym.images.first,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stack) {
+                                        return const Icon(
+                                          Icons.fitness_center,
+                                          color: AppColors.textSecondary,
+                                        );
+                                      },
+                                    ),
+                                  )
+                                      : const Icon(
+                                    Icons.fitness_center,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                AppSpacing.w12,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        gym.name,
+                                        style: AppTextStyles.labelMedium,
+                                      ),
+                                      AppSpacing.h4,
+                                      Text(
+                                        gym.locality,
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      AppSpacing.h16,
+
+                      // Service Details
+                      Text(
+                        'Service',
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -49,45 +122,103 @@ class ConfirmationScreen extends StatelessWidget {
                                 color: AppColors.surfaceLight,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              // TODO: Service image placeholder
+                              child: service.image != null
+                                  ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  service.image!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stack) {
+                                    return const Icon(
+                                      Icons.fitness_center,
+                                      color: AppColors.textSecondary,
+                                      size: 24,
+                                    );
+                                  },
+                                ),
+                              )
+                                  : const Icon(
+                                Icons.fitness_center,
+                                color: AppColors.textSecondary,
+                                size: 24,
+                              ),
                             ),
                             AppSpacing.w12,
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(service.name, style: AppTextStyles.labelMedium),
-                                Text(
-                                  '₹${service.pricePerSlot}',
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: AppColors.textSecondary,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(service.name, style: AppTextStyles.labelMedium),
+                                  AppSpacing.h4,
+                                  Text(
+                                    '₹${service.pricePerSlot} per slot',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                       AppSpacing.h16,
 
-                      // Selected Time
+                      // Date & Time
                       Text(
-                        'Selected Time',
+                        'Date & Time',
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textSecondary,
                         ),
                       ),
                       AppSpacing.h8,
                       _buildSection(
-                        child: Row(
+                        child: Column(
                           children: [
-                            const Icon(Icons.access_time, size: 20),
-                            AppSpacing.w12,
-                            Text(
-                              'Today ${provider.selectedTimeSlot?.label ?? '10:00 AM - 11:00 AM'}',
-                              style: AppTextStyles.bodyMedium,
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today, size: 20, color: AppColors.primaryGreen),
+                                AppSpacing.w12,
+                                Expanded(
+                                  child: Text(
+                                    dateStr,
+                                    style: AppTextStyles.bodyMedium,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const Spacer(),
-                            const Icon(Icons.keyboard_arrow_down, size: 20),
+                            if (selectedSlot != null) ...[
+                              AppSpacing.h12,
+                              const Divider(color: AppColors.border),
+                              AppSpacing.h12,
+                              Row(
+                                children: [
+                                  const Icon(Icons.access_time, size: 20, color: AppColors.primaryGreen),
+                                  AppSpacing.w12,
+                                  Expanded(
+                                    child: Text(
+                                      selectedSlot.label,
+                                      style: AppTextStyles.bodyMedium,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            AppSpacing.h12,
+                            const Divider(color: AppColors.border),
+                            AppSpacing.h12,
+                            Row(
+                              children: [
+                                const Icon(Icons.schedule, size: 20, color: AppColors.primaryGreen),
+                                AppSpacing.w12,
+                                Expanded(
+                                  child: Text(
+                                    '$slotCount ${slotCount > 1 ? "slots" : "slot"} selected',
+                                    style: AppTextStyles.bodyMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -104,52 +235,12 @@ class ConfirmationScreen extends StatelessWidget {
                       _buildSection(
                         child: Row(
                           children: [
-                            const Icon(Icons.person_outline, size: 20),
+                            const Icon(Icons.person_outline, size: 20, color: AppColors.primaryGreen),
                             AppSpacing.w12,
                             Text(
-                              context.read<AuthProvider>().user?.name ?? 'Karthik Aryan',
+                              context.read<AuthProvider>().user?.name ?? 'User',
                               style: AppTextStyles.bodyMedium,
                             ),
-                            const Spacer(),
-                            const Icon(Icons.keyboard_arrow_down, size: 20),
-                          ],
-                        ),
-                      ),
-                      AppSpacing.h16,
-
-                      // Service Location
-                      Text(
-                        'Service Location',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      AppSpacing.h8,
-                      _buildSection(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.location_on_outlined, size: 20),
-                            AppSpacing.w12,
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    context.read<LocationProvider>().savedAddress?.houseFlat ?? 'SNN Raj Vista',
-                                    style: AppTextStyles.bodyMedium,
-                                  ),
-                                  Text(
-                                    context.read<LocationProvider>().savedAddress?.fullAddress ?? '312, MG road, Korama...',
-                                    style: AppTextStyles.caption.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(Icons.chevron_right, size: 20),
                           ],
                         ),
                       ),
@@ -166,11 +257,14 @@ class ConfirmationScreen extends StatelessWidget {
                       _buildSection(
                         child: Column(
                           children: [
-                            _buildPaymentRow(service.name, provider.serviceTotal),
+                            _buildPaymentRow(
+                              '${service.name} (x$slotCount)',
+                              provider.serviceTotal,
+                            ),
                             AppSpacing.h12,
                             _buildPaymentRow('Visiting Fee', provider.visitingFee),
                             AppSpacing.h12,
-                            _buildPaymentRow('Tax', provider.tax),
+                            _buildPaymentRow('Tax (18%)', provider.tax),
                             AppSpacing.h12,
                             const Divider(color: AppColors.border),
                             AppSpacing.h12,
@@ -197,7 +291,7 @@ class ConfirmationScreen extends StatelessWidget {
                 child: SafeArea(
                   top: false,
                   child: PrimaryButton(
-                    text: 'Confirm',
+                    text: 'Confirm & Pay ₹${provider.totalAmount.toInt()}',
                     isLoading: provider.isLoading,
                     onPressed: () async {
                       provider.setBookingFor(
@@ -221,6 +315,16 @@ class ConfirmationScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _getDayName(int weekday) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[weekday - 1];
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
   }
 
   Widget _buildSection({required Widget child}) {

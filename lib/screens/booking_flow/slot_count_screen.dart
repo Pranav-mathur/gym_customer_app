@@ -45,6 +45,21 @@ class SlotCountScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Back button
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: AppColors.textPrimary,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                    AppSpacing.h16,
+
                     Text(
                       service.name,
                       style: AppTextStyles.heading3,
@@ -63,7 +78,7 @@ class SlotCountScreen extends StatelessWidget {
                       children: [
                         _buildCounterButton(
                           Icons.remove,
-                          () => provider.decrementSlots(),
+                              () => provider.decrementSlots(),
                         ),
                         AppSpacing.w16,
                         Container(
@@ -84,7 +99,7 @@ class SlotCountScreen extends StatelessWidget {
                         AppSpacing.w16,
                         _buildCounterButton(
                           Icons.add,
-                          () => provider.incrementSlots(),
+                              () => provider.incrementSlots(),
                         ),
                       ],
                     ),

@@ -5,16 +5,17 @@ import '../core/widgets/widgets.dart';
 import '../core/utils/formatters.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
+import '../services/home_service.dart';
 import 'booking_flow/time_slot_screen.dart';
 import 'booking_flow/business_hours_sheet.dart';
 import 'ratings_reviews_screen.dart';
 
 class GymDetailScreen extends StatefulWidget {
-  final GymModel gym;
+  final String gymId;
 
   const GymDetailScreen({
     super.key,
-    required this.gym,
+    required this.gymId,
   });
 
   @override
@@ -27,10 +28,45 @@ class _GymDetailScreenState extends State<GymDetailScreen>
   final PageController _imageController = PageController();
   int _currentImageIndex = 0;
 
+  GymModel? _gym;
+  bool _isLoading = true;
+  String? _error;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadGymDetails();
+  }
+
+  Future<void> _loadGymDetails() async {
+    final auth = context.read<AuthProvider>();
+
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final gym = await HomeService().getGymDetails(
+        token: auth.token ?? '',
+        gymId: widget.gymId,
+      );
+
+      if (mounted) {
+        setState(() {
+          _gym = gym;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -45,7 +81,25 @@ class _GymDetailScreenState extends State<GymDetailScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
+            : _error != null
+            ? Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_error!, style: AppTextStyles.bodyMedium),
+              AppSpacing.h16,
+              PrimaryButton(
+                text: 'Retry',
+                onPressed: _loadGymDetails,
+              ),
+            ],
+          ),
+        )
+            : _gym == null
+            ? const Center(child: Text('Gym not found'))
+            : Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
@@ -80,12 +134,12 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      widget.gym.name,
+                                      _gym!.name,
                                       style: AppTextStyles.heading3,
                                     ),
                                     AppSpacing.h4,
                                     Text(
-                                      widget.gym.fullAddress,
+                                      _gym!.fullAddress,
                                       style: AppTextStyles.bodySmall.copyWith(
                                         color: AppColors.textSecondary,
                                       ),
@@ -131,12 +185,12 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                                     ),
                                     AppSpacing.w4,
                                     Text(
-                                      widget.gym.isOpen ? 'Open' : 'Closed',
+                                      _gym!.isOpen ? 'Open' : 'Closed',
                                       style: AppTextStyles.caption.copyWith(
                                         color: AppColors.primaryGreen,
                                       ),
                                     ),
-                                    if (widget.gym.is24x7) ...[
+                                    if (_gym!.is24x7) ...[
                                       Text(
                                         ' 24x7',
                                         style: AppTextStyles.caption.copyWith(
@@ -153,7 +207,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                               Icon(Icons.directions_walk, size: 14, color: AppColors.textSecondary),
                               AppSpacing.w4,
                               Text(
-                                '${widget.gym.distance.toStringAsFixed(1)} km',
+                                '${_gym!.distance.toStringAsFixed(1)} km',
                                 style: AppTextStyles.caption,
                               ),
                               AppSpacing.w8,
@@ -162,7 +216,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                               Icon(Icons.star, size: 14, color: AppColors.starFilled),
                               AppSpacing.w4,
                               Text(
-                                '${widget.gym.rating} (${AppFormatters.formatReviewCount(widget.gym.reviewCount)})',
+                                '${_gym!.rating} (${AppFormatters.formatReviewCount(_gym!.reviewCount)})',
                                 style: AppTextStyles.caption,
                               ),
                             ],
@@ -180,7 +234,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                         onPageChanged: (index) {
                           setState(() => _currentImageIndex = index);
                         },
-                        itemCount: widget.gym.images.isEmpty ? 1 : widget.gym.images.length,
+                        itemCount: _gym!.images.isEmpty ? 1 : _gym!.images.length,
                         itemBuilder: (context, index) {
                           return Container(
                             margin: const EdgeInsets.symmetric(
@@ -205,12 +259,12 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                     AppSpacing.h12,
 
                     // Image indicators
-                    if (widget.gym.images.length > 1)
+                    if (_gym!.images.length > 1)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(
-                          widget.gym.images.length,
-                          (index) => Container(
+                          _gym!.images.length,
+                              (index) => Container(
                             width: 8,
                             height: 8,
                             margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -263,7 +317,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                           Text('About Us', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
                           AppSpacing.h8,
                           Text(
-                            widget.gym.aboutUs ?? 'No description available.',
+                            _gym!.aboutUs ?? 'No description available.',
                             style: AppTextStyles.bodySmall,
                           ),
                         ],
@@ -273,7 +327,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                     const Divider(color: AppColors.border),
 
                     // Facilities
-                    if (widget.gym.facilities.isNotEmpty) ...[
+                    if (_gym!.facilities.isNotEmpty) ...[
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppDimensions.screenPaddingH,
@@ -287,7 +341,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                             Wrap(
                               spacing: 24,
                               runSpacing: 8,
-                              children: widget.gym.facilities.map((f) {
+                              children: _gym!.facilities.map((f) {
                                 return Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -369,7 +423,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
   }
 
   Widget _buildServicesTab() {
-    if (widget.gym.services.isEmpty) {
+    if (_gym!.services.isEmpty) {
       return const Center(
         child: Text('No services available', style: TextStyle(color: AppColors.textSecondary)),
       );
@@ -377,9 +431,9 @@ class _GymDetailScreenState extends State<GymDetailScreen>
 
     return ListView.builder(
       padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
-      itemCount: widget.gym.services.length,
+      itemCount: _gym!.services.length,
       itemBuilder: (context, index) {
-        final service = widget.gym.services[index];
+        final service = _gym!.services[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
@@ -415,13 +469,13 @@ class _GymDetailScreenState extends State<GymDetailScreen>
               ),
               GestureDetector(
                 onTap: () {
-                  context.read<BookingProvider>().initializeBooking(widget.gym);
+                  context.read<BookingProvider>().initializeBooking(_gym!);
                   context.read<BookingProvider>().selectService(service);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => TimeSlotScreen(
-                        gym: widget.gym,
+                        gym: _gym!,
                         service: service,
                       ),
                     ),
@@ -446,10 +500,10 @@ class _GymDetailScreenState extends State<GymDetailScreen>
           context,
           MaterialPageRoute(
             builder: (_) => RatingsReviewsScreen(
-              gymId: widget.gym.id,
-              gymName: widget.gym.name,
-              rating: widget.gym.rating,
-              reviewCount: widget.gym.reviewCount,
+              gymId: _gym!.id,
+              gymName: _gym!.name,
+              rating: _gym!.rating,
+              reviewCount: _gym!.reviewCount,
             ),
           ),
         );
@@ -467,7 +521,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                     const Icon(Icons.star, size: 16, color: AppColors.starFilled),
                     AppSpacing.w4,
                     Text(
-                      '${widget.gym.rating} (${AppFormatters.formatReviewCount(widget.gym.reviewCount)})',
+                      '${_gym!.rating} (${AppFormatters.formatReviewCount(_gym!.reviewCount)})',
                       style: AppTextStyles.labelSmall.copyWith(color: AppColors.primaryGreen),
                     ),
                   ],
@@ -490,7 +544,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
   }
 
   Widget _buildEquipmentsTab() {
-    if (widget.gym.equipments.isEmpty) {
+    if (_gym!.equipments.isEmpty) {
       return const Center(
         child: Text('No equipment information', style: TextStyle(color: AppColors.textSecondary)),
       );
@@ -504,9 +558,9 @@ class _GymDetailScreenState extends State<GymDetailScreen>
         mainAxisSpacing: 12,
         childAspectRatio: 0.85,
       ),
-      itemCount: widget.gym.equipments.length,
+      itemCount: _gym!.equipments.length,
       itemBuilder: (context, index) {
-        final equipment = widget.gym.equipments[index];
+        final equipment = _gym!.equipments[index];
         return Container(
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
@@ -543,8 +597,8 @@ class _GymDetailScreenState extends State<GymDetailScreen>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => BusinessHoursSheet(
-        gymName: widget.gym.name,
-        businessHours: widget.gym.businessHours,
+        gymName: _gym!.name,
+        businessHours: _gym!.businessHours,
         onContinue: () {
           Navigator.pop(context);
           // Navigate to subscription screen

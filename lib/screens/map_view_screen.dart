@@ -26,7 +26,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
         builder: (context, homeProvider, locationProvider, child) {
           final gyms = homeProvider.gyms;
           final currentLocation = locationProvider.currentLocation;
-          
+
           final initialPosition = currentLocation != null
               ? LatLng(currentLocation.latitude, currentLocation.longitude)
               : const LatLng(12.9716, 77.5946);
@@ -94,7 +94,7 @@ class _MapViewScreenState extends State<MapViewScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => GymDetailScreen(gym: gym),
+                              builder: (_) => GymDetailScreen(gymId: gym.id),
                             ),
                           );
                         },

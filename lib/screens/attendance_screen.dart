@@ -5,26 +5,63 @@ import '../core/widgets/widgets.dart';
 import '../core/utils/formatters.dart';
 import '../providers/providers.dart';
 import 'qr_scanner_screen.dart';
+import 'set_location_screen.dart';
+import 'notification_screen.dart';
+import 'side_menu_screen.dart';
 
-class AttendanceScreen extends StatelessWidget {
+class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
+
+  @override
+  State<AttendanceScreen> createState() => _AttendanceScreenState();
+}
+
+class _AttendanceScreenState extends State<AttendanceScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Load attendance on screen open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AttendanceProvider>().loadAttendance();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.background,
+      endDrawer: const SideMenuScreen(),
       body: SafeArea(
         child: Column(
           children: [
             // App bar
-            Consumer<LocationProvider>(
-              builder: (context, locationProvider, child) {
+            Consumer2<LocationProvider, HomeProvider>(
+              builder: (context, locationProvider, homeProvider, child) {
                 return HomeAppBar(
                   location: locationProvider.displayLocation,
                   address: locationProvider.displayAddress,
-                  onLocationTap: () {},
-                  onNotificationTap: () {},
-                  onMenuTap: () {},
+                  onLocationTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SetLocationScreen(),
+                      ),
+                    );
+                  },
+                  onNotificationTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationScreen(),
+                      ),
+                    );
+                  },
+                  onMenuTap: () {
+                    _scaffoldKey.currentState?.openEndDrawer();
+                  },
                 );
               },
             ),
@@ -37,6 +74,45 @@ class AttendanceScreen extends StatelessWidget {
             Expanded(
               child: Consumer<AttendanceProvider>(
                 builder: (context, provider, child) {
+                  // Loading state
+                  if (provider.isLoading && provider.attendanceData.isEmpty) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryGreen,
+                      ),
+                    );
+                  }
+
+                  // Error state
+                  if (provider.error != null && provider.attendanceData.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: AppColors.error,
+                            size: 48,
+                          ),
+                          AppSpacing.h16,
+                          Text(
+                            provider.error!,
+                            style: const TextStyle(color: AppColors.textSecondary),
+                            textAlign: TextAlign.center,
+                          ),
+                          AppSpacing.h16,
+                          TextButton(
+                            onPressed: () {
+                              provider.clearError();
+                              provider.loadAttendance();
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppDimensions.screenPaddingH,
@@ -47,11 +123,11 @@ class AttendanceScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              'This Month',
-                              style: AppTextStyles.labelMedium,
-                            ),
-                            const Icon(Icons.keyboard_arrow_down, size: 20),
+                            // Text(
+                            //   'This Month',
+                            //   style: AppTextStyles.labelMedium,
+                            // ),
+                            // const Icon(Icons.keyboard_arrow_down, size: 20),
                             AppSpacing.w12,
                             Text(
                               provider.dateRangeText,
@@ -260,17 +336,17 @@ class AttendanceScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
                 .map((day) => SizedBox(
-                      width: 36,
-                      child: Center(
-                        child: Text(
-                          day,
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ))
+              width: 36,
+              child: Center(
+                child: Text(
+                  day,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ))
                 .toList(),
           ),
           AppSpacing.h8,

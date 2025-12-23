@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../models/models.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
+  final UserService _userService = UserService();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   AuthStatus _status = AuthStatus.initial;
@@ -37,6 +40,7 @@ class AuthProvider with ChangeNotifier {
       final name = await _authService.getUserName();
       final email = await _authService.getUserEmail();
       final gender = await _authService.getUserGender();
+      final dateOfBirth = await _authService.getUserDateOfBirth();
       final profileImage = await _authService.getUserProfileImage();
       _refreshToken = await _storage.read(key: 'refresh_token');
 
@@ -50,6 +54,7 @@ class AuthProvider with ChangeNotifier {
           name: name,
           email: email,
           gender: gender,
+          dateOfBirth: dateOfBirth,
           profileImage: profileImage,
         );
         _status = AuthStatus.authenticated;
@@ -132,6 +137,7 @@ class AuthProvider with ChangeNotifier {
           name: userData['name'],
           email: userData['email'],
           gender: userData['gender'],
+          dateOfBirth: userData['date_of_birth'],
           profileImage: userData['profile_image'],
         );
       } else {
@@ -167,48 +173,114 @@ class AuthProvider with ChangeNotifier {
     await updateIsNewUser(false);
   }
 
+  /// Load fresh user profile from API
+  /// Returns true if successful, false otherwise
+  Future<bool> loadUserProfile() async {
+    try {
+      _status = AuthStatus.loading;
+      _error = null;
+      notifyListeners();
+
+      if (_token == null) {
+        throw Exception("No authentication token found. Please login again.");
+      }
+
+      // Fetch profile from API
+      final fetchedUser = await _userService.getProfile(_token!);
+
+      // Update local user and save to secure storage
+      _user = fetchedUser;
+
+      // Update secure storage with fresh data
+      if (fetchedUser.id != null) {
+        await _authService.saveUserId(fetchedUser.id!);
+      }
+      if (fetchedUser.name != null) {
+        await _authService.saveUserName(fetchedUser.name!);
+      }
+      if (fetchedUser.email != null) {
+        await _authService.saveUserEmail(fetchedUser.email!);
+      }
+      if (fetchedUser.gender != null) {
+        await _authService.saveUserGender(fetchedUser.gender!);
+      }
+      if (fetchedUser.dateOfBirth != null) {
+        await _authService.saveUserDateOfBirth(fetchedUser.dateOfBirth!);
+      }
+      if (fetchedUser.profileImage != null) {
+        await _authService.saveUserProfileImage(fetchedUser.profileImage!);
+      }
+
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+      debugPrint("✅ User profile loaded from API successfully");
+      return true;
+    } catch (e) {
+      _status = AuthStatus.error;
+      _error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      debugPrint("❌ Load User Profile Error: $e");
+      return false;
+    }
+  }
+
   // Update user profile
   Future<bool> updateProfile({
     String? name,
     String? email,
     String? gender,
-    String? profileImage,
+    String? dateOfBirth,
+    String? profileImagePath, // ✅ Changed from profileImage to profileImagePath
   }) async {
     try {
       _status = AuthStatus.loading;
+      _error = null;
       notifyListeners();
 
-      // TODO: Make actual API call to update profile
-      // For now, just update locally
-      await Future.delayed(const Duration(milliseconds: 500));
+      if (_token == null) {
+        throw Exception("No authentication token found. Please login again.");
+      }
 
-      _user = _user?.copyWith(
-        name: name ?? _user?.name,
-        email: email ?? _user?.email,
-        gender: gender ?? _user?.gender,
-        profileImage: profileImage ?? _user?.profileImage,
+      // Call the API to update profile
+      final result = await _userService.updateProfile(
+        token: _token!,
+        name: name,
+        email: email,
+        gender: gender,
+        dateOfBirth: dateOfBirth,
+        profileImagePath: profileImagePath, // ✅ Pass profile image path to API
       );
 
-      // Save to secure storage
-      if (name != null) {
-        await _authService.saveUserName(name);
-      }
-      if (email != null) {
-        await _authService.saveUserEmail(email);
-      }
-      if (gender != null) {
-        await _authService.saveUserGender(gender);
-      }
-      if (profileImage != null) {
-        await _authService.saveUserProfileImage(profileImage);
+      // Extract updated user data from response
+      final updatedUser = result['user'];
+      if (updatedUser != null) {
+        _user = UserModel.fromJson(updatedUser);
+
+        // Save to secure storage
+        if (updatedUser['name'] != null) {
+          await _authService.saveUserName(updatedUser['name']);
+        }
+        if (updatedUser['email'] != null) {
+          await _authService.saveUserEmail(updatedUser['email']);
+        }
+        if (updatedUser['gender'] != null) {
+          await _authService.saveUserGender(updatedUser['gender']);
+        }
+        if (updatedUser['date_of_birth'] != null) {
+          await _authService.saveUserDateOfBirth(updatedUser['date_of_birth']);
+        }
+        if (updatedUser['profile_image'] != null) {
+          await _authService.saveUserProfileImage(updatedUser['profile_image']);
+        }
       }
 
       _status = AuthStatus.authenticated;
       notifyListeners();
+      debugPrint("✅ Profile updated successfully");
       return true;
     } catch (e) {
       _status = AuthStatus.error;
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
       debugPrint("❌ Update Profile Error: $e");
       return false;

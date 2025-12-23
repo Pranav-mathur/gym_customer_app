@@ -4,8 +4,12 @@ class UserModel {
   final String? name;
   final String? email;
   final String? gender;
+  final String? dateOfBirth;
   final String? profileImage;
   final DateTime? createdAt;
+  final int? totalBookings;
+  final int? totalAttendanceDays;
+  final int? activeSubscriptions;
 
   UserModel({
     this.id,
@@ -13,8 +17,12 @@ class UserModel {
     this.name,
     this.email,
     this.gender,
+    this.dateOfBirth,
     this.profileImage,
     this.createdAt,
+    this.totalBookings,
+    this.totalAttendanceDays,
+    this.activeSubscriptions,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -24,10 +32,14 @@ class UserModel {
       name: json['name'],
       email: json['email'],
       gender: json['gender'],
+      dateOfBirth: json['date_of_birth'] ?? json['dateOfBirth'],
       profileImage: json['profile_image'] ?? json['profileImage'],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
+      totalBookings: json['total_bookings'],
+      totalAttendanceDays: json['total_attendance_days'],
+      activeSubscriptions: json['active_subscriptions'],
     );
   }
 
@@ -38,8 +50,12 @@ class UserModel {
       'name': name,
       'email': email,
       'gender': gender,
+      'date_of_birth': dateOfBirth,
       'profile_image': profileImage,
       'created_at': createdAt?.toIso8601String(),
+      'total_bookings': totalBookings,
+      'total_attendance_days': totalAttendanceDays,
+      'active_subscriptions': activeSubscriptions,
     };
   }
 
@@ -49,8 +65,12 @@ class UserModel {
     String? name,
     String? email,
     String? gender,
+    String? dateOfBirth,
     String? profileImage,
     DateTime? createdAt,
+    int? totalBookings,
+    int? totalAttendanceDays,
+    int? activeSubscriptions,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -58,8 +78,12 @@ class UserModel {
       name: name ?? this.name,
       email: email ?? this.email,
       gender: gender ?? this.gender,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       profileImage: profileImage ?? this.profileImage,
       createdAt: createdAt ?? this.createdAt,
+      totalBookings: totalBookings ?? this.totalBookings,
+      totalAttendanceDays: totalAttendanceDays ?? this.totalAttendanceDays,
+      activeSubscriptions: activeSubscriptions ?? this.activeSubscriptions,
     );
   }
 

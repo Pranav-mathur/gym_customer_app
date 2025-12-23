@@ -15,6 +15,7 @@ class AuthService {
   static const String _userNameKey = 'user_name';
   static const String _userEmailKey = 'user_email';
   static const String _userGenderKey = 'user_gender';
+  static const String _userDateOfBirthKey = 'user_date_of_birth';
   static const String _userProfileImageKey = 'user_profile_image';
   static const String _isNewUserKey = 'is_new_user';
 
@@ -129,6 +130,25 @@ class AuthService {
       await _secureStorage.write(key: _userGenderKey, value: gender);
     } catch (e) {
       debugPrint('Error saving user gender: $e');
+    }
+  }
+
+  // Get user date of birth
+  Future<String?> getUserDateOfBirth() async {
+    try {
+      return await _secureStorage.read(key: _userDateOfBirthKey);
+    } catch (e) {
+      debugPrint('Error getting user date of birth: $e');
+      return null;
+    }
+  }
+
+  // Save user date of birth
+  Future<void> saveUserDateOfBirth(String dateOfBirth) async {
+    try {
+      await _secureStorage.write(key: _userDateOfBirthKey, value: dateOfBirth);
+    } catch (e) {
+      debugPrint('Error saving user date of birth: $e');
     }
   }
 
@@ -272,6 +292,9 @@ class AuthService {
             }
             if (user['gender'] != null) {
               await saveUserGender(user['gender']);
+            }
+            if (user['date_of_birth'] != null) {
+              await saveUserDateOfBirth(user['date_of_birth']);
             }
             if (user['profile_image'] != null) {
               await saveUserProfileImage(user['profile_image']);

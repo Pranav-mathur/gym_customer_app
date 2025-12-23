@@ -4,9 +4,11 @@ enum BookingStatus { pending, confirmed, completed, cancelled }
 
 class BookingModel {
   final String id;
+  final String? bookingNumber;
   final String gymId;
   final String gymName;
   final String gymAddress;
+  final String? gymImage;
   final BookingType type;
   final BookingStatus status;
   final String? serviceId;
@@ -22,14 +24,18 @@ class BookingModel {
   final double totalAmount;
   final String? paymentMethod;
   final String? paymentId;
+  final String? paymentStatus;
   final DateTime createdAt;
   final String? instructions;
+  final String? qrCode;
 
   BookingModel({
     required this.id,
+    this.bookingNumber,
     required this.gymId,
     required this.gymName,
     required this.gymAddress,
+    this.gymImage,
     required this.type,
     required this.status,
     this.serviceId,
@@ -45,50 +51,62 @@ class BookingModel {
     required this.totalAmount,
     this.paymentMethod,
     this.paymentId,
+    this.paymentStatus,
     required this.createdAt,
     this.instructions,
+    this.qrCode,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
     return BookingModel(
       id: json['id'] ?? '',
+      bookingNumber: json['booking_number'] ?? json['bookingNumber'],
       gymId: json['gym_id'] ?? json['gymId'] ?? '',
       gymName: json['gym_name'] ?? json['gymName'] ?? '',
       gymAddress: json['gym_address'] ?? json['gymAddress'] ?? '',
+      gymImage: json['gym_image'] ?? json['gymImage'],
       type: BookingType.values.firstWhere(
-        (e) => e.name == (json['type'] ?? 'service'),
+            (e) => e.name == (json['type'] ?? 'service'),
         orElse: () => BookingType.service,
       ),
       status: BookingStatus.values.firstWhere(
-        (e) => e.name == (json['status'] ?? 'pending'),
+            (e) => e.name == (json['status'] ?? 'pending'),
         orElse: () => BookingStatus.pending,
       ),
       serviceId: json['service_id'] ?? json['serviceId'],
       serviceName: json['service_name'] ?? json['serviceName'],
       slots: json['slots'],
-      bookingDate: DateTime.parse(json['booking_date'] ?? json['bookingDate']),
+      bookingDate: json['booking_date'] != null
+          ? DateTime.parse(json['booking_date'])
+          : DateTime.now(),
       timeSlot: json['time_slot'] ?? json['timeSlot'],
       membershipType: json['membership_type'] ?? json['membershipType'],
       bookingFor: json['booking_for'] ?? json['bookingFor'] ?? '',
       amount: (json['amount'] ?? 0).toDouble(),
-      visitingFee: json['visiting_fee']?.toDouble(),
-      tax: json['tax']?.toDouble(),
+      visitingFee: json['visiting_fee'] != null
+          ? (json['visiting_fee']).toDouble()
+          : null,
+      tax: json['tax'] != null ? (json['tax']).toDouble() : null,
       totalAmount: (json['total_amount'] ?? json['totalAmount'] ?? 0).toDouble(),
       paymentMethod: json['payment_method'] ?? json['paymentMethod'],
       paymentId: json['payment_id'] ?? json['paymentId'],
-      createdAt: DateTime.parse(
-        json['created_at'] ?? json['createdAt'] ?? DateTime.now().toIso8601String(),
-      ),
+      paymentStatus: json['payment_status'] ?? json['paymentStatus'],
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
       instructions: json['instructions'],
+      qrCode: json['qr_code'] ?? json['qrCode'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'booking_number': bookingNumber,
       'gym_id': gymId,
       'gym_name': gymName,
       'gym_address': gymAddress,
+      'gym_image': gymImage,
       'type': type.name,
       'status': status.name,
       'service_id': serviceId,
@@ -104,8 +122,10 @@ class BookingModel {
       'total_amount': totalAmount,
       'payment_method': paymentMethod,
       'payment_id': paymentId,
+      'payment_status': paymentStatus,
       'created_at': createdAt.toIso8601String(),
       'instructions': instructions,
+      'qr_code': qrCode,
     };
   }
 }
@@ -117,6 +137,8 @@ class TimeSlotModel {
   final String endTime;
   final bool isAvailable;
   final String period;
+  final int? availableCount;
+  final int? maxCapacity;
 
   TimeSlotModel({
     required this.id,
@@ -125,6 +147,8 @@ class TimeSlotModel {
     required this.endTime,
     this.isAvailable = true,
     required this.period,
+    this.availableCount,
+    this.maxCapacity,
   });
 
   factory TimeSlotModel.fromJson(Map<String, dynamic> json) {
@@ -135,6 +159,8 @@ class TimeSlotModel {
       endTime: json['end_time'] ?? json['endTime'] ?? '',
       isAvailable: json['is_available'] ?? json['isAvailable'] ?? true,
       period: json['period'] ?? 'morning',
+      availableCount: json['available_count'] ?? json['availableCount'],
+      maxCapacity: json['max_capacity'] ?? json['maxCapacity'],
     );
   }
 
@@ -146,6 +172,8 @@ class TimeSlotModel {
       'end_time': endTime,
       'is_available': isAvailable,
       'period': period,
+      'available_count': availableCount,
+      'max_capacity': maxCapacity,
     };
   }
 }

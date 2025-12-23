@@ -24,6 +24,32 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadNotifications();
+      _loadUserAddresses();
+    });
+  }
+
+  Future<void> _loadNotifications() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.token != null) {
+      context.read<NotificationProvider>().fetchNotifications(
+        token: authProvider.token!,
+        refresh: true,
+      );
+    }
+  }
+
+  Future<void> _loadUserAddresses() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.token != null) {
+      await context.read<AddressProvider>().loadAddresses(authProvider.token!);
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -45,11 +71,13 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           children: [
             // App bar
-            Consumer<LocationProvider>(
-              builder: (context, locationProvider, child) {
+            Consumer<AddressProvider>(
+              builder: (context, addressProvider, child) {
+                final defaultAddress = addressProvider.defaultAddress;
+
                 return HomeAppBar(
-                  location: locationProvider.displayLocation,
-                  address: locationProvider.displayAddress,
+                  location: defaultAddress?.roadArea ?? 'Set Location',
+                  address: defaultAddress?.fullAddress ?? 'Tap to set your location',
                   onLocationTap: () {
                     Navigator.push(
                       context,
@@ -96,13 +124,46 @@ class _HomeScreenState extends State<HomeScreen> {
             // Gym count
             Consumer<HomeProvider>(
               builder: (context, provider, child) {
+                final displayText = provider.hasActiveFilters || provider.searchQuery.isNotEmpty
+                    ? '${provider.gyms.length} of ${provider.totalGyms} Gyms'
+                    : '${provider.totalGyms} Gyms near you';
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppDimensions.screenPaddingH,
                   ),
-                  child: Text(
-                    '${provider.totalGyms} Gyms near you',
-                    style: AppTextStyles.heading4,
+                  child: Row(
+                    children: [
+                      Text(
+                        displayText,
+                        style: AppTextStyles.heading4,
+                      ),
+                      if (provider.hasActiveFilters)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.primaryGreen,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              'Filtered',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primaryGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               },
@@ -229,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => GymDetailScreen(gym: gym),
+                                    builder: (_) => GymDetailScreen(gymId: gym.id),
                                   ),
                                 );
                               },
@@ -438,14 +499,12 @@ class _FilterSheetState extends State<FilterSheet> {
   @override
   void initState() {
     super.initState();
-
+    // Initialize with current filters from provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final location = context.read<LocationProvider>();
-
-      context.read<HomeProvider>().loadGyms(
-        latitude: location.currentLocation?.latitude,
-        longitude: location.currentLocation?.longitude,
-      );
+      final provider = context.read<HomeProvider>();
+      setState(() {
+        _selectedFacilities = Set.from(provider.selectedFacilities);
+      });
     });
   }
 
@@ -476,8 +535,30 @@ class _FilterSheetState extends State<FilterSheet> {
               horizontal: AppDimensions.screenPaddingH,
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Filter', style: AppTextStyles.heading4),
+                Consumer<HomeProvider>(
+                  builder: (context, provider, _) {
+                    if (provider.hasActiveFilters) {
+                      return TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedFacilities.clear();
+                          });
+                          context.read<HomeProvider>().clearFilters();
+                        },
+                        child: Text(
+                          'Clear All',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
               ],
             ),
           ),
@@ -507,11 +588,11 @@ class _FilterSheetState extends State<FilterSheet> {
                           decoration: BoxDecoration(
                             border: isSelected
                                 ? const Border(
-                                    left: BorderSide(
-                                      color: AppColors.primaryGreen,
-                                      width: 3,
-                                    ),
-                                  )
+                              left: BorderSide(
+                                color: AppColors.primaryGreen,
+                                width: 3,
+                              ),
+                            )
                                 : null,
                           ),
                           child: Text(
@@ -537,7 +618,9 @@ class _FilterSheetState extends State<FilterSheet> {
           Padding(
             padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
             child: PrimaryButton(
-              text: 'Apply Filter (${_selectedFacilities.length})',
+              text: _selectedFacilities.isEmpty
+                  ? 'Apply Filter'
+                  : 'Apply Filter (${_selectedFacilities.length})',
               onPressed: () {
                 context.read<HomeProvider>().setFacilities(_selectedFacilities);
                 Navigator.pop(context);
@@ -589,10 +672,10 @@ class _FilterSheetState extends State<FilterSheet> {
                     ),
                     child: isSelected
                         ? const Icon(
-                            Icons.check,
-                            size: 14,
-                            color: AppColors.primaryDark,
-                          )
+                      Icons.check,
+                      size: 14,
+                      color: AppColors.primaryDark,
+                    )
                         : null,
                   ),
                   AppSpacing.w12,
@@ -680,15 +763,15 @@ class SortSheet extends StatelessWidget {
                           ),
                           child: isSelected
                               ? Center(
-                                  child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primaryGreen,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                )
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryGreen,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          )
                               : null,
                         ),
                       ],

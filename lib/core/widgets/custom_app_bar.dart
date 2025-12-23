@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../constants/constants.dart';
+import '../../providers/notification_provider.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
@@ -29,17 +31,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: centerTitle,
       leading: showBackButton
           ? IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-              onPressed: onBackPressed ?? () => Navigator.pop(context),
-            )
+        icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+        onPressed: onBackPressed ?? () => Navigator.pop(context),
+      )
           : null,
       automaticallyImplyLeading: showBackButton,
       title: titleWidget ??
           (title != null
               ? Text(
-                  title!,
-                  style: AppTextStyles.heading4,
-                )
+            title!,
+            style: AppTextStyles.heading4,
+          )
               : null),
       actions: actions,
     );
@@ -73,88 +75,136 @@ class HomeAppBar extends StatelessWidget {
         vertical: AppDimensions.paddingM,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Location
+          // Location Icon
+          GestureDetector(
+            // onTap: onLocationTap,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.location_on_outlined,
+                color: AppColors.textPrimary,
+                size: 20,
+              ),
+            ),
+          ),
+
+          AppSpacing.w12,
+
+          // Location Text Only
           Expanded(
             child: GestureDetector(
               onTap: onLocationTap,
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.location_on_outlined,
-                      color: AppColors.textPrimary,
-                      size: 20,
-                    ),
+                  Text(
+                    location,
+                    style: AppTextStyles.heading4.copyWith(fontSize: 18),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  AppSpacing.w12,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          location,
-                          style: AppTextStyles.labelMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          address,
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                  const SizedBox(height: 2),
+                  Text(
+                    address,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
           ),
-          
-          // Actions
-          Row(
-            children: [
-              _buildIconButton(
-                Icons.notifications_outlined,
-                onNotificationTap,
+
+          AppSpacing.w8,
+
+          // Notification Bell with Badge
+          Consumer<NotificationProvider>(
+            builder: (context, notifProvider, _) {
+              return GestureDetector(
+                onTap: onNotificationTap,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Stack(
+                    children: [
+                      const Center(
+                        child: Icon(
+                          Icons.notifications_outlined,
+                          color: AppColors.textPrimary,
+                          size: 20,
+                        ),
+                      ),
+                      if (notifProvider.unreadCount > 0)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Center(
+                              child: Text(
+                                notifProvider.unreadCount > 9
+                                    ? '9+'
+                                    : notifProvider.unreadCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+
+          AppSpacing.w8,
+
+          // Menu Icon
+          GestureDetector(
+            onTap: onMenuTap,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(8),
               ),
-              AppSpacing.w8,
-              _buildIconButton(
+              child: const Icon(
                 Icons.menu,
-                onMenuTap,
+                color: AppColors.textPrimary,
+                size: 20,
               ),
-            ],
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildIconButton(IconData icon, VoidCallback? onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          color: AppColors.textPrimary,
-          size: 20,
-        ),
       ),
     );
   }

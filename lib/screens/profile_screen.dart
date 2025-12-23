@@ -5,14 +5,17 @@ import 'dart:io';
 import '../core/constants/constants.dart';
 import '../core/widgets/widgets.dart';
 import '../providers/providers.dart';
+import '../services/upload_service.dart';
 import 'set_location_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool isInitialSetup;
+  final bool isEditMode; // New parameter to distinguish between onboarding and editing
 
   const ProfileScreen({
     super.key,
     this.isInitialSetup = false,
+    this.isEditMode = false,
   });
 
   @override
@@ -24,20 +27,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _emailController = TextEditingController();
   String? _selectedGender;
   File? _profileImage;
+  String? _uploadedImageUrl; // Store the uploaded URL from API
+  bool _isUploadingImage = false; // Track upload state
+  bool _isLoadingProfile = false; // Track profile loading state
   final _picker = ImagePicker();
+  final _uploadService = UploadService();
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    // Load profile data based on mode
+    if (widget.isEditMode) {
+      // Fetch fresh data from API when in edit mode
+      _loadProfileFromAPI();
+    } else {
+      // Load from local auth provider for onboarding
+      _loadLocalUserData();
+    }
   }
 
-  void _loadUserData() {
+  /// Load user data from local AuthProvider (for onboarding flow)
+  void _loadLocalUserData() {
     final user = context.read<AuthProvider>().user;
     if (user != null) {
       _nameController.text = user.name ?? '';
       _emailController.text = user.email ?? '';
       _selectedGender = user.gender;
+      _uploadedImageUrl = user.profileImage;
+    }
+  }
+
+  /// Fetch profile data from API (for edit mode)
+  Future<void> _loadProfileFromAPI() async {
+    setState(() {
+      _isLoadingProfile = true;
+    });
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+
+      // Load profile from API and update local state
+      final success = await authProvider.loadUserProfile();
+
+      if (success && mounted) {
+        final user = authProvider.user;
+        if (user != null) {
+          setState(() {
+            _nameController.text = user.name ?? '';
+            _emailController.text = user.email ?? '';
+            _selectedGender = user.gender;
+            _uploadedImageUrl = user.profileImage;
+            _isLoadingProfile = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingProfile = false;
+        });
+
+        if (mounted && authProvider.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to load profile: ${authProvider.error}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingProfile = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading profile: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -51,36 +120,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
     );
+
     if (picked != null) {
       setState(() {
         _profileImage = File(picked.path);
+        _isUploadingImage = true;
       });
+
+      try {
+        // Get token from auth provider
+        final token = context.read<AuthProvider>().token;
+
+        if (token == null) {
+          throw Exception("Authentication required. Please login again.");
+        }
+
+        // Upload file and get URL
+        final uploadedUrl = await _uploadService.uploadFile(
+          token: token,
+          file: File(picked.path),
+        );
+
+        setState(() {
+          _uploadedImageUrl = uploadedUrl;
+          _isUploadingImage = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image uploaded successfully'),
+              backgroundColor: AppColors.primaryGreen,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _isUploadingImage = false;
+          _profileImage = null; // Clear image on upload failure
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Upload failed: ${e.toString().replaceAll('Exception: ', '')}'),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
     }
   }
 
   Future<void> _handleUpdate() async {
+    // Validate required fields
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your name'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     final authProvider = context.read<AuthProvider>();
+
     final success = await authProvider.updateProfile(
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       gender: _selectedGender,
+      profileImagePath: _uploadedImageUrl, // Send uploaded URL to API
     );
 
     if (success && mounted) {
       if (widget.isInitialSetup) {
+        // Onboarding flow - go to location screen
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const SetLocationScreen(isInitialSetup: true)),
         );
       } else {
+        // Edit mode - go back and show success message
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
+          const SnackBar(
+            content: Text('Profile updated successfully'),
+            backgroundColor: AppColors.primaryGreen,
+          ),
         );
       }
+    } else if (mounted && authProvider.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.error!),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -98,7 +240,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: widget.isInitialSetup
           ? null
           : const CustomAppBar(title: 'My Profile'),
-      body: SafeArea(
+      body: _isLoadingProfile
+          ? const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primaryGreen,
+        ),
+      )
+          : SafeArea(
         child: Column(
           children: [
             if (widget.isInitialSetup) ...[
@@ -133,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       AppSpacing.h16,
                       // Profile Image
                       GestureDetector(
-                        onTap: _pickImage,
+                        onTap: _isUploadingImage ? null : _pickImage,
                         child: Stack(
                           children: [
                             CircleAvatar(
@@ -141,35 +289,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               backgroundColor: AppColors.surfaceLight,
                               backgroundImage: _profileImage != null
                                   ? FileImage(_profileImage!)
+                                  : (_uploadedImageUrl != null && _uploadedImageUrl!.isNotEmpty)
+                                  ? NetworkImage(_uploadedImageUrl!) as ImageProvider
                                   : null,
-                              child: _profileImage == null
+                              child: (_profileImage == null && (_uploadedImageUrl == null || _uploadedImageUrl!.isEmpty))
                                   ? const Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: AppColors.textSecondary,
-                                    )
+                                Icons.person,
+                                size: 50,
+                                color: AppColors.textSecondary,
+                              )
                                   : null,
                             ),
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryGreen,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.add,
-                                  size: 20,
-                                  color: AppColors.primaryDark,
+                            // Loading indicator overlay
+                            if (_isUploadingImage)
+                              Positioned.fill(
+                                child: CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: AppColors.primaryDark.withOpacity(0.7),
+                                  child: const CircularProgressIndicator(
+                                    color: AppColors.primaryGreen,
+                                    strokeWidth: 3,
+                                  ),
                                 ),
                               ),
-                            ),
+                            // Add button
+                            if (!_isUploadingImage)
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primaryGreen,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    size: 20,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
                       AppSpacing.h32,
+
+                      // Phone Number (Read-only, shown in edit mode)
+                      if (widget.isEditMode) ...[
+                        Consumer<AuthProvider>(
+                          builder: (context, auth, child) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Phone Number',
+                                  style: AppTextStyles.labelMedium.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                AppSpacing.h8,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.inputBackground.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+                                    border: Border.all(color: AppColors.inputBorder),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.phone_outlined,
+                                        color: AppColors.textSecondary,
+                                        size: 20,
+                                      ),
+                                      AppSpacing.w12,
+                                      Text(
+                                        auth.user?.phoneNumber ?? 'N/A',
+                                        style: AppTextStyles.bodyMedium.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        AppSpacing.h20,
+                      ],
 
                       // Name Field
                       CustomTextField(
@@ -196,9 +408,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Expanded(
                                 child: _GenderButton(
                                   label: 'Male',
-                                  isSelected: _selectedGender == 'Male',
+                                  isSelected: _selectedGender?.toLowerCase() == 'male',
                                   onTap: () {
-                                    setState(() => _selectedGender = 'Male');
+                                    setState(() => _selectedGender = 'male');
                                   },
                                 ),
                               ),
@@ -206,9 +418,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Expanded(
                                 child: _GenderButton(
                                   label: 'Female',
-                                  isSelected: _selectedGender == 'Female',
+                                  isSelected: _selectedGender?.toLowerCase() == 'female',
                                   onTap: () {
-                                    setState(() => _selectedGender = 'Female');
+                                    setState(() => _selectedGender = 'female');
                                   },
                                 ),
                               ),
@@ -252,7 +464,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Consumer<AuthProvider>(
                 builder: (context, auth, child) {
                   return PrimaryButton(
-                    text: 'Update Profile',
+                    text: widget.isEditMode ? 'Update Profile' : 'Continue',
                     isLoading: auth.status == AuthStatus.loading,
                     onPressed: _handleUpdate,
                   );

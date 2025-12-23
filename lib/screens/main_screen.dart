@@ -33,11 +33,18 @@ class _MainScreenState extends State<MainScreen> {
     // Load initial data
     final homeProvider = context.read<HomeProvider>();
     final attendanceProvider = context.read<AttendanceProvider>();
+    final authProvider = context.read<AuthProvider>();
 
-    await Future.wait([
-      homeProvider.loadGyms(),
-      attendanceProvider.loadAttendance(),
-    ]);
+    // Get token from auth provider
+    final token = authProvider.token;
+
+    if (token != null) {
+      await Future.wait([
+        homeProvider.loadGyms(token: token),
+        homeProvider.loadUserProfile(token),  // Load user profile
+        attendanceProvider.loadAttendance(),
+      ]);
+    }
   }
 
   @override

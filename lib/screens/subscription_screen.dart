@@ -5,6 +5,9 @@ import '../core/widgets/widgets.dart';
 import '../core/utils/formatters.dart';
 import '../providers/providers.dart';
 import '../models/models.dart';
+import 'set_location_screen.dart';
+import 'notification_screen.dart';
+import 'side_menu_screen.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});
@@ -14,19 +17,22 @@ class SubscriptionScreen extends StatefulWidget {
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _selectedType = 'multi_gym';
   String? _selectedDuration;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.background,
+      endDrawer: const SideMenuScreen(),
       body: SafeArea(
         child: Consumer<BookingProvider>(
           builder: (context, bookingProvider, child) {
             final plans = bookingProvider.getPlansForType(_selectedType);
             final selectedPlan = plans.firstWhere(
-              (p) => p.duration == _selectedDuration,
+                  (p) => p.duration == _selectedDuration,
               orElse: () => plans.isNotEmpty ? plans[2] : plans.first, // Default to 1 month
             );
 
@@ -38,9 +44,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     return HomeAppBar(
                       location: locationProvider.displayLocation,
                       address: locationProvider.displayAddress,
-                      onLocationTap: () {},
-                      onNotificationTap: () {},
-                      onMenuTap: () {},
+                      onLocationTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SetLocationScreen(),
+                          ),
+                        );
+                      },
+                      onNotificationTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationScreen(),
+                          ),
+                        );
+                      },
+                      onMenuTap: () {
+                        _scaffoldKey.currentState?.openEndDrawer();
+                      },
                     );
                   },
                 ),
@@ -94,7 +116,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                       'Access only to',
                                       'Zinga Fitness & Training',
                                       _selectedType == 'single_gym',
-                                      () => setState(() => _selectedType = 'single_gym'),
+                                          () => setState(() => _selectedType = 'single_gym'),
                                     ),
                                   ),
                                   AppSpacing.w12,
@@ -106,7 +128,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                                           'Access to all',
                                           '112 Pro Gyms',
                                           _selectedType == 'multi_gym',
-                                          () => setState(() => _selectedType = 'multi_gym'),
+                                              () => setState(() => _selectedType = 'multi_gym'),
                                         ),
                                         Positioned(
                                           top: 0,
@@ -291,12 +313,12 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildTypeCard(
-    String title,
-    String subtitle,
-    String detail,
-    bool isSelected,
-    VoidCallback onTap,
-  ) {
+      String title,
+      String subtitle,
+      String detail,
+      bool isSelected,
+      VoidCallback onTap,
+      ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -353,7 +375,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   String _getNextRenewalDate(String duration) {
     final now = DateTime.now();
     DateTime renewalDate;
-    
+
     switch (duration) {
       case '1_day':
         renewalDate = now.add(const Duration(days: 1));
@@ -373,7 +395,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       default:
         renewalDate = now.add(const Duration(days: 30));
     }
-    
+
     return AppFormatters.formatDate(renewalDate);
   }
 }

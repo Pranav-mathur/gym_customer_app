@@ -91,7 +91,7 @@ class LocationModel {
   }
 }
 
-class AddressModel {
+class AddressLocationModel {
   final String? id;
   final String houseFlat;
   final String roadArea;
@@ -100,7 +100,7 @@ class AddressModel {
   final double? latitude;
   final double? longitude;
 
-  AddressModel({
+  AddressLocationModel({
     this.id,
     required this.houseFlat,
     required this.roadArea,
@@ -110,8 +110,8 @@ class AddressModel {
     this.longitude,
   });
 
-  factory AddressModel.fromJson(Map<String, dynamic> json) {
-    return AddressModel(
+  factory AddressLocationModel.fromJson(Map<String, dynamic> json) {
+    return AddressLocationModel(
       id: json['id'],
       houseFlat: json['house_flat'] ?? json['houseFlat'] ?? '',
       roadArea: json['road_area'] ?? json['roadArea'] ?? '',
