@@ -23,6 +23,7 @@ class HomeService {
     );
 
     debugPrint("✅ Fetch Gyms API → $uri");
+    debugPrint("✅ Fetch Gyms API token → $token");
 
     try {
       final response = await http.get(

@@ -34,6 +34,10 @@ class _MainScreenState extends State<MainScreen> {
     final homeProvider = context.read<HomeProvider>();
     final attendanceProvider = context.read<AttendanceProvider>();
     final authProvider = context.read<AuthProvider>();
+    final locationProvider = context.read<LocationProvider>();
+
+    // CRITICAL: Load saved location FIRST so address bar shows correctly
+    await locationProvider.loadSavedLocation();
 
     // Get token from auth provider
     final token = authProvider.token;

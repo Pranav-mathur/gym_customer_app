@@ -155,7 +155,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         ),
                         AppSpacing.h4,
                         Text(
-                          '+91 ${widget.phoneNumber}',
+                          '+91 ${widget.phoneNumber.replaceAll(' ', '').replaceFirst(RegExp(r'^\+91'), '')}',
                           style: AppTextStyles.labelLarge,
                         ),
                       ],

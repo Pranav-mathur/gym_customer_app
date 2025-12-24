@@ -21,8 +21,14 @@ class BusinessHoursSheet extends StatelessWidget {
         ? businessHours
         : _getDefaultHours();
 
+    // FIXED: Calculate max height based on screen size
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxHeight = screenHeight * 0.75; // Max 75% of screen height
+
     return Container(
-      padding: const EdgeInsets.all(AppDimensions.paddingXXL),
+      constraints: BoxConstraints(
+        maxHeight: maxHeight,
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -36,21 +42,60 @@ class BusinessHoursSheet extends StatelessWidget {
           top: Radius.circular(AppDimensions.radiusXL),
         ),
       ),
+      // FIXED: Wrap in Column with proper structure
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            gymName,
-            style: AppTextStyles.heading4,
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-          AppSpacing.h24,
 
-          ...hours.map((h) => _buildDayRow(h)).toList(),
+          // FIXED: Scrollable content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Title
+                  Text(
+                    gymName,
+                    style: AppTextStyles.heading4,
+                    textAlign: TextAlign.center,
+                  ),
+                  AppSpacing.h16,
 
-          AppSpacing.h24,
-          PrimaryButton(
-            text: 'Continue',
-            onPressed: onContinue,
+                  // Business hours list
+                  ...hours.map((h) => _buildDayRow(h)).toList(),
+
+                  AppSpacing.h16,
+                ],
+              ),
+            ),
+          ),
+
+          // FIXED: Button outside scroll view, always visible
+          Container(
+            padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: AppColors.border),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: PrimaryButton(
+                text: 'Continue',
+                onPressed: onContinue,
+              ),
+            ),
           ),
         ],
       ),
@@ -62,6 +107,7 @@ class BusinessHoursSheet extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
+          // Day name
           SizedBox(
             width: 50,
             child: Text(
@@ -70,41 +116,61 @@ class BusinessHoursSheet extends StatelessWidget {
                 color: hours.isOpen
                     ? AppColors.textPrimary
                     : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          AppSpacing.w8,
+          AppSpacing.w12,
+
+          // Toggle switch
           Container(
-            width: 36,
-            height: 20,
+            width: 44,
+            height: 24,
             decoration: BoxDecoration(
               color: hours.isOpen
                   ? AppColors.primaryGreen
                   : AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: AnimatedAlign(
               duration: const Duration(milliseconds: 200),
               alignment:
-                  hours.isOpen ? Alignment.centerRight : Alignment.centerLeft,
+              hours.isOpen ? Alignment.centerRight : Alignment.centerLeft,
               child: Container(
-                width: 16,
-                height: 16,
+                width: 20,
+                height: 20,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
                   color: hours.isOpen
                       ? AppColors.primaryDark
                       : AppColors.textSecondary,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+
           const Spacer(),
+
+          // Time boxes
           if (hours.isOpen) ...[
-            _buildTimeBox(hours.openTime ?? '9:00 AM'),
-            AppSpacing.w12,
-            _buildTimeBox(hours.closeTime ?? '5:00 PM'),
+            _buildTimeBox(hours.openTime ?? '6:00'),
+            AppSpacing.w8,
+            _buildTimeBox(hours.closeTime ?? '22:00'),
+          ] else ...[
+            Text(
+              'Closed',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
           ],
         ],
       ),
@@ -118,26 +184,28 @@ class BusinessHoursSheet extends StatelessWidget {
         vertical: 8,
       ),
       decoration: BoxDecoration(
-        color: AppColors.inputBackground,
+        color: AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
       child: Text(
         time,
-        style: AppTextStyles.bodySmall,
+        style: AppTextStyles.bodySmall.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 
   List<BusinessHours> _getDefaultHours() {
     return [
-      BusinessHours(day: 'Mon', isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM'),
-      BusinessHours(day: 'Tue', isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM'),
-      BusinessHours(day: 'Wed', isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM'),
-      BusinessHours(day: 'Thu', isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM'),
-      BusinessHours(day: 'Fri', isOpen: true, openTime: '9:00 AM', closeTime: '5:00 PM'),
-      BusinessHours(day: 'Sat', isOpen: false),
-      BusinessHours(day: 'Sun', isOpen: false),
+      BusinessHours(day: 'Mon', isOpen: true, openTime: '06:00', closeTime: '22:00'),
+      BusinessHours(day: 'Tue', isOpen: true, openTime: '06:00', closeTime: '22:00'),
+      BusinessHours(day: 'Wed', isOpen: true, openTime: '06:00', closeTime: '22:00'),
+      BusinessHours(day: 'Thu', isOpen: true, openTime: '06:00', closeTime: '22:00'),
+      BusinessHours(day: 'Fri', isOpen: true, openTime: '06:00', closeTime: '22:00'),
+      BusinessHours(day: 'Sat', isOpen: true, openTime: '08:00', closeTime: '20:00'),
+      BusinessHours(day: 'Sun', isOpen: true, openTime: '09:00', closeTime: '18:00'),
     ];
   }
 }
