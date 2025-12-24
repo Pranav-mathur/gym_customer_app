@@ -55,34 +55,14 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   Future<void> _processQRCode(String qrData) async {
     try {
-      // Parse QR code data
-      // QR code format can be:
-      // 1. Plain gym_id: "gym_1"
-      // 2. JSON: {"gym_id": "gym_1", ...}
-      // 3. URL with gym_id parameter
+      // Use scanned text directly as gym_id
+      final gymId = qrData.trim();
 
-      String? gymId;
-
-      // Try parsing as JSON first
-      try {
-        final jsonData = jsonDecode(qrData);
-        gymId = jsonData['gym_id'] ?? jsonData['id'];
-      } catch (e) {
-        // Not JSON, check if it's a URL
-        if (qrData.contains('gym_id=')) {
-          final uri = Uri.parse(qrData);
-          gymId = uri.queryParameters['gym_id'];
-        } else if (qrData.startsWith('gym_')) {
-          // Plain gym ID
-          gymId = qrData;
-        }
+      if (gymId.isEmpty) {
+        throw Exception("Invalid QR code. Please scan a valid gym QR code.");
       }
 
-      if (gymId == null || gymId.isEmpty) {
-        throw Exception("Invalid QR code. Could not extract gym ID.");
-      }
-
-      debugPrint("✅ Extracted Gym ID: $gymId");
+      debugPrint("✅ Gym ID: $gymId");
 
       // Get user location
       final locationProvider = context.read<LocationProvider>();
@@ -95,7 +75,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       // Call check-in API
       final attendanceProvider = context.read<AttendanceProvider>();
       final result = await attendanceProvider.checkIn(
-        qrCode: qrData,
+        qrCode: gymId,
         gymId: gymId,
         latitude: location.latitude,
         longitude: location.longitude,
@@ -104,12 +84,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        // Success - reload attendance and go back
         await attendanceProvider.loadAttendance();
 
         if (!mounted) return;
 
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message'] ?? 'Check-in successful!'),
@@ -118,10 +96,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           ),
         );
 
-        // Navigate back to attendance screen
-        Navigator.pop(context, true); // true indicates successful check-in
+        Navigator.pop(context, true);
       } else {
-        // Failed - show error and allow retry
         if (!mounted) return;
 
         setState(() {

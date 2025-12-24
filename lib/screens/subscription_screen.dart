@@ -23,6 +23,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
@@ -33,7 +36,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             final plans = bookingProvider.getPlansForType(_selectedType);
             final selectedPlan = plans.firstWhere(
                   (p) => p.duration == _selectedDuration,
-              orElse: () => plans.isNotEmpty ? plans[2] : plans.first, // Default to 1 month
+              orElse: () => plans.isNotEmpty && plans.length > 2 ? plans[2] : plans.first,
             );
 
             return Column(
@@ -71,269 +74,227 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        // Hero image placeholder
+                        // Hero image with dumbbell icon
                         Container(
-                          height: 200,
+                          height: screenHeight * 0.25,
                           width: double.infinity,
-                          margin: const EdgeInsets.all(AppDimensions.screenPaddingH),
+                          margin: EdgeInsets.all(screenWidth * 0.04),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.primaryOlive.withOpacity(0.3),
-                                AppColors.primaryGreen.withOpacity(0.2),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(AppDimensions.radiusL),
-                          ),
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryGreen,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Icon(
-                                Icons.fitness_center,
-                                size: 60,
-                                color: AppColors.primaryDark,
-                              ),
+                            borderRadius: BorderRadius.circular(20),
+                            image: const DecorationImage(
+                              image: AssetImage('assets/images/gym_bg.png'),
+                              fit: BoxFit.cover,
                             ),
                           ),
-                        ),
-
-                        AppSpacing.h16,
-
-                        // Subscription type selection
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.screenPaddingH,
-                          ),
-                          child: Column(
-                            children: [
-                              // Title
-                              Text(
-                                'Select Subscription Type',
-                                style: AppTextStyles.heading4,
-                              ),
-                              AppSpacing.h16,
-
-                              // Type cards
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTypeCard(
-                                      'Single Gym',
-                                      'Access only to',
-                                      'Zinga Fitness & Training',
-                                      _selectedType == 'single_gym',
-                                          () => setState(() => _selectedType = 'single_gym'),
-                                      showRecommended: false,
-                                    ),
-                                  ),
-                                  AppSpacing.w12,
-                                  Expanded(
-                                    child: _buildTypeCard(
-                                      'Multi Gym',
-                                      'Access to all',
-                                      '112 Pro Gyms',
-                                      _selectedType == 'multi_gym',
-                                          () => setState(() => _selectedType = 'multi_gym'),
-                                      showRecommended: true,
-                                    ),
-                                  ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.3),
+                                  Colors.black.withOpacity(0.6),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        AppSpacing.h24,
-
-                        // Duration selection
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.screenPaddingH,
-                          ),
-                          child: Column(
-                            children: [
-                              // Title (FIXED: Changed from duplicate "Select Subscription Type")
-                              Text(
-                                'Select Duration',
-                                style: AppTextStyles.heading4,
-                              ),
-                              AppSpacing.h16,
-
-                              // Duration chips (FIXED: Proper height and constraints)
-                              SizedBox(
-                                height: 100,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: plans.length,
-                                  separatorBuilder: (context, index) => AppSpacing.w12,
-                                  itemBuilder: (context, index) {
-                                    final plan = plans[index];
-                                    final isSelected = selectedPlan.id == plan.id;
-                                    return GestureDetector(
-                                      onTap: () {
-                                        setState(() => _selectedDuration = plan.duration);
-                                        bookingProvider.selectPlan(plan);
-                                      },
-                                      child: Container(
-                                        width: 85,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                          horizontal: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? AppColors.primaryGreen.withOpacity(0.1)
-                                              : AppColors.cardBackground,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? AppColors.primaryGreen
-                                                : AppColors.border,
-                                            width: isSelected ? 2 : 1,
-                                          ),
-                                        ),
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            if (isSelected)
-                                              const Icon(
-                                                Icons.check_circle,
-                                                color: AppColors.primaryGreen,
-                                                size: 20,
-                                              )
-                                            else
-                                              const Icon(
-                                                Icons.circle_outlined,
-                                                color: AppColors.border,
-                                                size: 20,
-                                              ),
-                                            AppSpacing.h8,
-                                            Text(
-                                              plan.durationLabel,
-                                              style: AppTextStyles.bodySmall.copyWith(
-                                                color: isSelected
-                                                    ? AppColors.primaryGreen
-                                                    : AppColors.textSecondary,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w600
-                                                    : FontWeight.w400,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                            AppSpacing.h4,
-                                            Text(
-                                              '₹${plan.price}',
-                                              style: AppTextStyles.labelMedium.copyWith(
-                                                color: isSelected
-                                                    ? AppColors.primaryGreen
-                                                    : AppColors.textPrimary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            if (plan.originalPrice != null) ...[
-                                              AppSpacing.h4,
-                                              Text(
-                                                '₹${plan.originalPrice}',
-                                                style: AppTextStyles.caption.copyWith(
-                                                  color: AppColors.textSecondary,
-                                                  decoration: TextDecoration.lineThrough,
-                                                  fontSize: 9,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        AppSpacing.h24,
-
-                        // Summary
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.screenPaddingH,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _selectedType == 'multi_gym' ? 'Multi Gym' : 'Single Gym',
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8),
-                                child: Text(
-                                  '•',
-                                  style: TextStyle(color: AppColors.textSecondary),
-                                ),
-                              ),
-                              Text(
-                                selectedPlan.durationLabel,
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 8),
-                                child: Text(
-                                  '•',
-                                  style: TextStyle(color: AppColors.textSecondary),
-                                ),
-                              ),
-                              Text(
-                                '₹${selectedPlan.price}',
-                                style: AppTextStyles.labelMedium.copyWith(
+                            ),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(18),
+                                decoration: BoxDecoration(
                                   color: AppColors.primaryGreen,
-                                  fontWeight: FontWeight.w700,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primaryGreen.withOpacity(0.3),
+                                      blurRadius: 20,
+                                      spreadRadius: 5,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.fitness_center,
+                                  size: 50,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: screenHeight * 0.01),
+
+                        // Subscription type selection title
+                        Text(
+                          'Select Subscription Type',
+                          style: AppTextStyles.heading4.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+
+                        // Type cards - Single Gym & Multi Gym
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
+                          child: Row(
+                            children: [
+                              // Single Gym Card
+                              Expanded(
+                                child: _buildTypeCard(
+                                  title: 'Single Gym',
+                                  subtitle: 'Access only to',
+                                  detail: 'Zinga Fitness & Training',
+                                  isSelected: _selectedType == 'single_gym',
+                                  onTap: () => setState(() => _selectedType = 'single_gym'),
+                                  showRecommended: false,
+                                  screenWidth: screenWidth,
+                                ),
+                              ),
+                              SizedBox(width: screenWidth * 0.03),
+                              // Multi Gym Card
+                              Expanded(
+                                child: _buildTypeCard(
+                                  title: 'Multi Gym',
+                                  subtitle: 'Access to all',
+                                  detail: '112 Pro Gyms',
+                                  isSelected: _selectedType == 'multi_gym',
+                                  onTap: () => setState(() => _selectedType = 'multi_gym'),
+                                  showRecommended: true,
+                                  screenWidth: screenWidth,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        AppSpacing.h24,
+
+                        SizedBox(height: screenHeight * 0.03),
+
+                        // Duration selection title
+                        Text(
+                          'Select Subscription Type',
+                          style: AppTextStyles.heading4.copyWith(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+
+                        // Duration cards - horizontal scroll
+                        SizedBox(
+                          height: screenHeight * 0.13,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
+                            itemCount: plans.length,
+                            itemBuilder: (context, index) {
+                              final plan = plans[index];
+                              final isSelected = selectedPlan.id == plan.id;
+                              return Padding(
+                                padding: EdgeInsets.only(right: screenWidth * 0.025),
+                                child: _buildDurationCard(
+                                  plan: plan,
+                                  isSelected: isSelected,
+                                  onTap: () {
+                                    setState(() => _selectedDuration = plan.duration);
+                                    bookingProvider.selectPlan(plan);
+                                  },
+                                  screenWidth: screenWidth,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+
+                        SizedBox(height: screenHeight * 0.02),
                       ],
                     ),
                   ),
                 ),
 
-                // Subscribe button
+                // Bottom section with summary and subscribe button
                 Container(
-                  padding: const EdgeInsets.all(AppDimensions.screenPaddingH),
-                  decoration: const BoxDecoration(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenWidth * 0.04,
+                    vertical: screenHeight * 0.02,
+                  ),
+                  decoration: BoxDecoration(
                     color: AppColors.cardBackground,
-                    border: Border(top: BorderSide(color: AppColors.border)),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    border: const Border(top: BorderSide(color: AppColors.border)),
                   ),
                   child: SafeArea(
                     top: false,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Summary row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _selectedType == 'multi_gym' ? 'Multi Gym' : 'Single Gym',
+                              style: AppTextStyles.labelMedium.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Text(
+                                '•',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              selectedPlan.durationLabel,
+                              style: AppTextStyles.labelMedium.copyWith(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Text(
+                                '•',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '₹${selectedPlan.price}',
+                              style: AppTextStyles.labelMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: screenHeight * 0.015),
+
+                        // Subscribe button
                         PrimaryButton(
                           text: 'Subscribe',
                           onPressed: () {
-                            // Handle subscription
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Subscription flow coming soon')),
                             );
                           },
                         ),
-                        AppSpacing.h8,
+                        SizedBox(height: screenHeight * 0.01),
+
+                        // Renewal text
                         Text(
                           'Next renewal will be on ${_getNextRenewalDate(selectedPlan.duration)}',
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
@@ -348,108 +309,132 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
-  Widget _buildTypeCard(
-      String title,
-      String subtitle,
-      String detail,
-      bool isSelected,
-      VoidCallback onTap, {
-        required bool showRecommended,
-      }) {
+  Widget _buildTypeCard({
+    required String title,
+    required String subtitle,
+    required String detail,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool showRecommended,
+    required double screenWidth,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.symmetric(
+              horizontal: screenWidth * 0.03,
+              vertical: screenWidth * 0.045,
+            ),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primaryGreen.withOpacity(0.1)
-                  : AppColors.cardBackground,
-              borderRadius: BorderRadius.circular(AppDimensions.radiusM),
+              gradient: isSelected
+                  ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.primaryOlive.withOpacity(0.4),
+                  AppColors.primaryGreen.withOpacity(0.15),
+                ],
+              )
+                  : null,
+              color: isSelected ? null : AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isSelected ? AppColors.primaryGreen : AppColors.border,
-                width: isSelected ? 2 : 1,
+                width: isSelected ? 1.5 : 1,
               ),
             ),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 // Selection indicator
                 if (isSelected)
-                  const Icon(
+                  Icon(
                     Icons.check_circle,
                     color: AppColors.primaryGreen,
-                    size: 28,
+                    size: screenWidth * 0.065,
                   )
                 else
                   Container(
-                    width: 28,
-                    height: 28,
+                    width: screenWidth * 0.06,
+                    height: screenWidth * 0.06,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.border,
-                        width: 2,
+                        color: AppColors.textSecondary.withOpacity(0.5),
+                        width: 1.5,
                       ),
                     ),
                   ),
-                AppSpacing.h12,
+                SizedBox(height: screenWidth * 0.025),
 
                 // Title
                 Text(
                   title,
-                  style: AppTextStyles.labelLarge.copyWith(
+                  style: TextStyle(
                     color: isSelected ? AppColors.primaryGreen : AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
+                    fontSize: 16,
                   ),
                 ),
-                AppSpacing.h8,
+                SizedBox(height: screenWidth * 0.035),
+
+                // Divider
+                Container(
+                  height: 1,
+                  width: double.infinity,
+                  color: AppColors.border.withOpacity(0.5),
+                ),
+                SizedBox(height: screenWidth * 0.025),
 
                 // Subtitle
                 Text(
                   subtitle,
-                  style: AppTextStyles.caption.copyWith(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
+                    fontSize: 12,
                   ),
                   textAlign: TextAlign.center,
                 ),
+                SizedBox(height: screenWidth * 0.01),
 
-                // Detail
+                // Detail (gym name/count)
                 Text(
                   detail,
-                  style: AppTextStyles.caption.copyWith(
+                  style: TextStyle(
                     color: AppColors.primaryGreen,
-                    decoration: TextDecoration.underline,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
 
-          // RECOMMENDED badge (FIXED: Properly positioned)
+          // RECOMMENDED badge
           if (showRecommended)
             Positioned(
-              top: -8,
+              top: -10,
               left: 0,
               right: 0,
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 12,
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryGreen,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     'RECOMMENDED',
-                    style: AppTextStyles.caption.copyWith(
+                    style: TextStyle(
                       color: AppColors.primaryDark,
                       fontSize: 9,
                       fontWeight: FontWeight.w700,
@@ -460,6 +445,87 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDurationCard({
+    required SubscriptionModel plan,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required double screenWidth,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: screenWidth * 0.22,
+        padding: EdgeInsets.symmetric(
+          vertical: screenWidth * 0.025,
+          horizontal: screenWidth * 0.02,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primaryGreen.withOpacity(0.1)
+              : AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryGreen : AppColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Checkmark for selected
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: AppColors.primaryGreen,
+                size: screenWidth * 0.05,
+              )
+            else
+              SizedBox(height: screenWidth * 0.05),
+
+            SizedBox(height: screenWidth * 0.01),
+
+            // Duration label
+            Text(
+              plan.durationLabel,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: screenWidth * 0.008),
+
+            // Price
+            Text(
+              '₹ ${plan.price}',
+              style: TextStyle(
+                color: isSelected ? AppColors.primaryGreen : AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            // Original price (strikethrough)
+            if (plan.originalPrice != null) ...[
+              SizedBox(height: screenWidth * 0.005),
+              Text(
+                '${plan.originalPrice}',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10,
+                  decoration: TextDecoration.lineThrough,
+                  decorationColor: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
