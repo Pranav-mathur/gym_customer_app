@@ -6,9 +6,10 @@ import '../core/utils/formatters.dart';
 import '../models/models.dart';
 import '../providers/providers.dart';
 import '../services/home_service.dart';
-import 'booking_flow/time_slot_screen.dart';
+import 'booking_flow/slot_count_screen.dart';
 import 'booking_flow/business_hours_sheet.dart';
 import 'ratings_reviews_screen.dart';
+import 'subscription_screen.dart';
 
 class GymDetailScreen extends StatefulWidget {
   final String gymId;
@@ -474,7 +475,7 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => TimeSlotScreen(
+                      builder: (_) => SlotCountScreen(
                         gym: _gym!,
                         service: service,
                       ),
@@ -596,13 +597,19 @@ class _GymDetailScreenState extends State<GymDetailScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => BusinessHoursSheet(
         gymName: _gym!.name,
         businessHours: _gym!.businessHours,
         onContinue: () {
-          Navigator.pop(context);
-          // Navigate to subscription screen
-          // For now, navigate to time slot with membership type
+          Navigator.pop(context); // Close bottom sheet
+          // Navigate to subscription screen with gym data
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SubscriptionScreen(gym: _gym!),
+            ),
+          );
         },
       ),
     );

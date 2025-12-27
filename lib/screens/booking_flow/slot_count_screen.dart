@@ -4,7 +4,7 @@ import '../../core/constants/constants.dart';
 import '../../core/widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import 'confirmation_screen.dart';
+import 'time_slot_screen.dart';
 
 class SlotCountScreen extends StatelessWidget {
   final GymModel gym;
@@ -137,7 +137,7 @@ class SlotCountScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ConfirmationScreen(
+                            builder: (_) => TimeSlotScreen(
                               gym: gym,
                               service: service,
                             ),

@@ -6,6 +6,9 @@ import '../providers/providers.dart';
 import 'home_screen.dart';
 import 'attendance_screen.dart';
 import 'subscription_screen.dart';
+import 'set_location_screen.dart';
+import 'notification_screen.dart';
+import 'side_menu_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,12 +18,13 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
 
   final List<Widget> _screens = const [
-    HomeScreen(),
-    AttendanceScreen(),
-    SubscriptionScreen(),
+    HomeScreen(showAppBar: false),
+    AttendanceScreen(showAppBar: false),
+    SubscriptionScreen(showAppBar: false),
   ];
 
   @override
@@ -30,33 +34,76 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _loadData() async {
-    // Load initial data
     final homeProvider = context.read<HomeProvider>();
     final attendanceProvider = context.read<AttendanceProvider>();
     final authProvider = context.read<AuthProvider>();
     final locationProvider = context.read<LocationProvider>();
 
-    // CRITICAL: Load saved location FIRST so address bar shows correctly
     await locationProvider.loadSavedLocation();
 
-    // Get token from auth provider
     final token = authProvider.token;
 
     if (token != null) {
       await Future.wait([
         homeProvider.loadGyms(token: token),
-        homeProvider.loadUserProfile(token),  // Load user profile
+        homeProvider.loadUserProfile(token),
+        homeProvider.loadBanners(),
         attendanceProvider.loadAttendance(),
       ]);
+    } else {
+      await homeProvider.loadBanners();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
+      endDrawer: const SideMenuScreen(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Common HomeAppBar for all tabs
+            Consumer<AddressProvider>(
+              builder: (context, addressProvider, child) {
+                final defaultAddress = addressProvider.defaultAddress;
+
+                return HomeAppBar(
+                  location: defaultAddress?.roadArea ?? 'Set Location',
+                  address: defaultAddress?.fullAddress ?? 'Tap to set your location',
+                  onLocationTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SetLocationScreen(),
+                      ),
+                    );
+                  },
+                  onNotificationTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationScreen(),
+                      ),
+                    );
+                  },
+                  onMenuTap: () {
+                    _scaffoldKey.currentState?.openEndDrawer();
+                  },
+                );
+              },
+            ),
+
+            // Tab content
+            Expanded(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: _screens,
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: _currentIndex,

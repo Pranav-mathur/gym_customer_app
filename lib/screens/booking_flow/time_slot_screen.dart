@@ -5,7 +5,7 @@ import '../../core/widgets/widgets.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import 'slot_count_screen.dart';
+import 'confirmation_screen.dart';
 
 class TimeSlotScreen extends StatefulWidget {
   final GymModel gym;
@@ -43,7 +43,10 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
   Future<void> _loadTimeSlots() async {
     final token = context.read<AuthProvider>().token;
     if (token != null) {
-      await context.read<BookingProvider>().loadAvailableSlots(token);
+      await context.read<BookingProvider>().loadAvailableSlots(
+        token: token,
+        slotCount: context.read<BookingProvider>().slotCount,
+      );
     }
   }
 
@@ -279,7 +282,7 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => SlotCountScreen(
+                                builder: (_) => ConfirmationScreen(
                                   gym: widget.gym,
                                   service: widget.service,
                                 ),

@@ -26,6 +26,7 @@ class BookingProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingSlots = false;
   String? _error;
+  Map<String, dynamic>? _currentBookingDetails; // For storing fetched booking details
 
   // Getters
   GymModel? get selectedGym => _selectedGym;
@@ -42,6 +43,7 @@ class BookingProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isLoadingSlots => _isLoadingSlots;
   String? get error => _error;
+  Map<String, dynamic>? get currentBookingDetails => _currentBookingDetails;
 
   // Price calculations
   double get serviceTotal {
@@ -136,7 +138,10 @@ class BookingProvider extends ChangeNotifier {
   }
 
   // Load available time slots from API
-  Future<void> loadAvailableSlots(String token) async {
+  Future<void> loadAvailableSlots({
+    required String token,
+    required int slotCount,
+  }) async {
     if (_selectedGym == null || _selectedService == null || _selectedDate == null) {
       debugPrint("❌ Cannot load slots: Missing gym, service, or date");
       return;
@@ -155,6 +160,7 @@ class BookingProvider extends ChangeNotifier {
         gymId: _selectedGym!.id,
         serviceId: _selectedService!.id,
         date: dateStr,
+        slotCount: slotCount,
       );
 
       _isLoadingSlots = false;
@@ -222,7 +228,7 @@ class BookingProvider extends ChangeNotifier {
   }
 
   // Create service booking
-  Future<BookingModel?> createServiceBooking() async {
+  Future<Map<String, dynamic>?> createServiceBooking() async {
     if (_selectedGym == null || _selectedService == null ||
         _selectedDate == null || _selectedTimeSlot == null) {
       _error = 'Please complete all booking details';
@@ -232,47 +238,107 @@ class BookingProvider extends ChangeNotifier {
 
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
-      await Future.delayed(const Duration(seconds: 1));
+      // Get auth token
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception("Authentication required. Please login again.");
+      }
 
-      final booking = BookingModel(
-        id: 'booking_${DateTime.now().millisecondsSinceEpoch}',
+      // Parse time from "9:00 AM" format to DateTime
+      final startDateTime = _parseTimeSlot(_selectedTimeSlot!.startTime, _selectedDate!);
+      final startTime = startDateTime.toIso8601String();
+
+      // Format booking date as YYYY-MM-DD
+      final bookingDate = '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+
+      // Call API
+      final response = await _bookingService.createServiceBooking(
+        token: token,
         gymId: _selectedGym!.id,
-        gymName: _selectedGym!.name,
-        gymAddress: _selectedGym!.fullAddress,
-        type: BookingType.service,
-        status: BookingStatus.confirmed,
         serviceId: _selectedService!.id,
-        serviceName: _selectedService!.name,
-        slots: _slotCount,
-        bookingDate: _selectedDate!,
-        timeSlot: _selectedTimeSlot!.label,
+        startTime: startTime,
+        hours: _slotCount,
+        bookingDate: bookingDate,
+        timeSlotId: _selectedTimeSlot!.id,
         bookingFor: _bookingFor,
+        serviceLocation: _serviceLocation?.fullAddress,
+        paymentMethod: 'razorpay',
         amount: serviceTotal,
         visitingFee: visitingFee,
         tax: tax,
         totalAmount: totalAmount,
-        createdAt: DateTime.now(),
-        instructions: '1. Arrive 5mins early to ensure timely entry\n2. Bring mobile, water bottle and workout shoes,',
       );
 
-      _bookings.insert(0, booking);
       _isLoading = false;
       notifyListeners();
 
-      return booking;
+      return response;  // Returns { booking: {...}, payment_link_url: "..." }
     } catch (e) {
       _isLoading = false;
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+      debugPrint("❌ Create Service Booking Error: $e");
       return null;
     }
   }
 
+  // Get booking details by ID
+  Future<Map<String, dynamic>?> getBookingDetails(String bookingId) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception("Authentication required. Please login again.");
+      }
+
+      final bookingDetails = await _bookingService.getBookingDetails(
+        token: token,
+        bookingId: bookingId,
+      );
+
+      _currentBookingDetails = bookingDetails; // Store for SuccessScreen
+      _isLoading = false;
+      notifyListeners();
+
+      return bookingDetails;
+    } catch (e) {
+      _isLoading = false;
+      _error = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      debugPrint("❌ Get Booking Details Error: $e");
+      return null;
+    }
+  }
+
+  // Verify payment
+  Future<bool> verifyPayment(String bookingId) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception("Authentication required. Please login again.");
+      }
+
+      return await _bookingService.verifyPayment(
+        token: token,
+        bookingId: bookingId,
+      );
+    } catch (e) {
+      debugPrint("❌ Verify Payment Error: $e");
+      return false;
+    }
+  }
+
   // Create membership booking
-  Future<BookingModel?> createMembershipBooking() async {
-    if (_selectedGym == null || _selectedPlan == null) {
+  // Create membership booking (single or multi-gym)
+  Future<Map<String, dynamic>?> createMembershipBooking({String? gymId}) async {
+    print(_selectedPlan);
+    if (_selectedPlan == null) {
       _error = 'Please select a subscription plan';
       notifyListeners();
       return null;
@@ -280,35 +346,98 @@ class BookingProvider extends ChangeNotifier {
 
     try {
       _isLoading = true;
+      _error = null;
       notifyListeners();
 
-      await Future.delayed(const Duration(seconds: 1));
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception("Authentication required. Please login again.");
+      }
 
-      final booking = BookingModel(
-        id: 'booking_${DateTime.now().millisecondsSinceEpoch}',
-        gymId: _subscriptionType == 'single_gym' ? _selectedGym!.id : '',
-        gymName: _subscriptionType == 'single_gym' ? _selectedGym!.name : 'Multi Gym Access',
-        gymAddress: _subscriptionType == 'single_gym' ? _selectedGym!.fullAddress : 'Access to all 112 Pro Gyms',
-        type: BookingType.membership,
-        status: BookingStatus.confirmed,
-        bookingDate: DateTime.now(),
-        membershipType: '${_subscriptionType == 'single_gym' ? 'Single Gym' : 'Multi Gym'} - ${_selectedPlan!.durationLabel}',
-        bookingFor: _bookingFor,
-        amount: _selectedPlan!.price.toDouble(),
-        totalAmount: _selectedPlan!.price.toDouble(),
-        createdAt: DateTime.now(),
-        instructions: '1. Arrive 5mins early to ensure timely entry\n2. Bring mobile, water bottle and workout shoes,',
-      );
+      Map<String, dynamic> response;
 
-      _bookings.insert(0, booking);
+      // Call appropriate API based on type
+      if (_subscriptionType == 'single_gym') {
+        if (gymId == null) {
+          throw Exception("Gym ID is required for single gym membership");
+        }
+
+        response = await _bookingService.createMembershipBooking(
+          token: token,
+          gymId: gymId,
+          bookingFor: _bookingFor.isNotEmpty ? _bookingFor : null,
+          amount: _selectedPlan!.price.toDouble(),
+          duration: _selectedPlan!.duration,
+          planId: _selectedPlan!.id,
+        );
+      } else {
+        // Multi-gym membership
+        response = await _bookingService.createMultiGymMembershipBooking(
+          token: token,
+          bookingFor: _bookingFor.isNotEmpty ? _bookingFor : null,
+          amount: _selectedPlan!.price.toDouble(),
+          duration: _selectedPlan!.duration,
+          planId: _selectedPlan!.id,
+        );
+      }
+
       _isLoading = false;
       notifyListeners();
 
-      return booking;
+      return response; // { membership_id, payment_link_url }
     } catch (e) {
       _isLoading = false;
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+      debugPrint("❌ Create Membership Booking Error: $e");
+      return null;
+    }
+  }
+
+  // Verify membership payment
+  Future<bool> verifyMembershipPayment(String membershipId) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception("Authentication required. Please login again.");
+      }
+
+      final verified = await _bookingService.verifyMembershipPayment(
+        token: token,
+        membershipId: membershipId,
+      );
+
+      return verified;
+    } catch (e) {
+      debugPrint("❌ Verify Membership Payment Error: $e");
+      return false;
+    }
+  }
+
+  // Get membership details
+  Future<Map<String, dynamic>?> getMembershipDetails(String membershipId) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception("Authentication required. Please login again.");
+      }
+
+      final details = await _bookingService.getMembershipDetails(
+        token: token,
+        membershipId: membershipId,
+      );
+
+      _isLoading = false;
+      notifyListeners();
+
+      return details;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      debugPrint("❌ Get Membership Details Error: $e");
       return null;
     }
   }
@@ -328,5 +457,48 @@ class BookingProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // Helper function to parse time slot format "9:00 AM" to DateTime
+  DateTime _parseTimeSlot(String timeString, DateTime date) {
+    try {
+      // Remove any extra whitespace
+      timeString = timeString.trim();
+
+      // Check if it contains AM/PM
+      final isAM = timeString.toUpperCase().contains('AM');
+      final isPM = timeString.toUpperCase().contains('PM');
+
+      // Remove AM/PM and trim
+      String cleanTime = timeString.replaceAll(RegExp(r'[APMapm\s]+'), '').trim();
+
+      // Split by colon
+      final parts = cleanTime.split(':');
+      if (parts.length != 2) {
+        throw FormatException('Invalid time format: $timeString');
+      }
+
+      int hour = int.parse(parts[0]);
+      int minute = int.parse(parts[1]);
+
+      // Convert to 24-hour format if PM
+      if (isPM && hour != 12) {
+        hour += 12;
+      } else if (isAM && hour == 12) {
+        hour = 0;
+      }
+
+      return DateTime(
+        date.year,
+        date.month,
+        date.day,
+        hour,
+        minute,
+      );
+    } catch (e) {
+      debugPrint('❌ Error parsing time: $timeString - $e');
+      // Fallback to current time
+      return DateTime.now();
+    }
   }
 }

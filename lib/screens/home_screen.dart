@@ -13,7 +13,9 @@ import 'set_location_screen.dart';
 import 'review_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool showAppBar;
+
+  const HomeScreen({super.key, this.showAppBar = true});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -29,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadNotifications();
       _loadUserAddresses();
+      _loadBanners();
     });
   }
 
@@ -49,6 +52,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadBanners() async {
+    await context.read<HomeProvider>().loadBanners();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -63,278 +70,279 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: AppColors.background,
-      endDrawer: const SideMenuScreen(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // App bar
-            Consumer<AddressProvider>(
-              builder: (context, addressProvider, child) {
-                final defaultAddress = addressProvider.defaultAddress;
+    final contentColumn = Column(
+      children: [
+        // App bar (only if showAppBar is true)
+        if (widget.showAppBar)
+          Consumer<AddressProvider>(
+            builder: (context, addressProvider, child) {
+              final defaultAddress = addressProvider.defaultAddress;
 
-                return HomeAppBar(
-                  location: defaultAddress?.roadArea ?? 'Set Location',
-                  address: defaultAddress?.fullAddress ?? 'Tap to set your location',
-                  onLocationTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SetLocationScreen(),
-                      ),
-                    );
-                  },
-                  onNotificationTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationScreen(),
-                      ),
-                    );
-                  },
-                  onMenuTap: _openDrawer,
-                );
-              },
-            ),
+              return HomeAppBar(
+                location: defaultAddress?.roadArea ?? 'Set Location',
+                address: defaultAddress?.fullAddress ?? 'Tap to set your location',
+                onLocationTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SetLocationScreen(),
+                    ),
+                  );
+                },
+                onNotificationTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationScreen(),
+                    ),
+                  );
+                },
+                onMenuTap: _openDrawer,
+              );
+            },
+          ),
 
-            // Hero image placeholder
-            Container(
-              height: size.height * 0.22,
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.screenPaddingH,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceLight,
-                borderRadius: BorderRadius.circular(AppDimensions.radiusL),
-                // TODO: Add hero image
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.fitness_center,
-                  size: 60,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-            AppSpacing.h16,
+        // Banner Slider
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.screenPaddingH,
+          ),
+          child: Consumer<HomeProvider>(
+            builder: (context, provider, child) {
+              return BannerSlider(
+                banners: provider.banners,
+                height: size.height * 0.22,
+              );
+            },
+          ),
+        ),
+        AppSpacing.h16,
 
-            // Gym count
-            Consumer<HomeProvider>(
-              builder: (context, provider, child) {
-                final displayText = provider.hasActiveFilters || provider.searchQuery.isNotEmpty
-                    ? '${provider.gyms.length} of ${provider.totalGyms} Gyms'
-                    : '${provider.totalGyms} Gyms near you';
+        // Gym count
+        Consumer<HomeProvider>(
+          builder: (context, provider, child) {
+            final displayText = provider.hasActiveFilters || provider.searchQuery.isNotEmpty
+                ? '${provider.gyms.length} of ${provider.totalGyms} Gyms'
+                : '${provider.totalGyms} Gyms near you';
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimensions.screenPaddingH,
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        displayText,
-                        style: AppTextStyles.heading4,
-                      ),
-                      if (provider.hasActiveFilters)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryGreen.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.primaryGreen,
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              'Filtered',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.primaryGreen,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            AppSpacing.h12,
-
-            // Search and filter row
-            Padding(
+            return Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppDimensions.screenPaddingH,
               ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 48,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) {
-                          context.read<HomeProvider>().searchGyms(value);
-                        },
-                        style: AppTextStyles.bodyMedium,
-                        decoration: InputDecoration(
-                          hintText: 'Search gym',
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: AppColors.textSecondary,
+                  Text(
+                    displayText,
+                    style: AppTextStyles.heading4,
+                  ),
+                  if (provider.hasActiveFilters)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.primaryGreen,
+                            width: 1,
                           ),
-                          filled: true,
-                          fillColor: AppColors.inputBackground,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.inputBorder,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.inputBorder,
-                            ),
+                        ),
+                        child: Text(
+                          'Filtered',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.primaryGreen,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  AppSpacing.w8,
-                  _buildIconButton(
-                    Icons.tune,
-                    onTap: () => _showFilterSheet(context),
-                  ),
-                  AppSpacing.w8,
-                  _buildIconButton(
-                    Icons.sort,
-                    onTap: () => _showSortSheet(context),
-                  ),
                 ],
               ),
-            ),
-            AppSpacing.h16,
+            );
+          },
+        ),
+        AppSpacing.h12,
 
-            // Gym list
-            Expanded(
-              child: Consumer<HomeProvider>(
-                builder: (context, provider, child) {
-                  if (provider.isLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryGreen,
+        // Search and filter row
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppDimensions.screenPaddingH,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      context.read<HomeProvider>().searchGyms(value);
+                    },
+                    style: AppTextStyles.bodyMedium,
+                    decoration: InputDecoration(
+                      hintText: 'Search gym',
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.textSecondary,
                       ),
-                    );
-                  }
-
-                  if (provider.gyms.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search_off,
-                            size: 64,
-                            color: AppColors.textSecondary,
-                          ),
-                          AppSpacing.h16,
-                          Text(
-                            'No gyms found',
-                            style: AppTextStyles.bodyLarge.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
+                      filled: true,
+                      fillColor: AppColors.inputBackground,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                    );
-                  }
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.inputBorder,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.inputBorder,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              AppSpacing.w8,
+              _buildIconButton(
+                Icons.tune,
+                onTap: () => _showFilterSheet(context),
+              ),
+              AppSpacing.w8,
+              _buildIconButton(
+                Icons.sort,
+                onTap: () => _showSortSheet(context),
+              ),
+            ],
+          ),
+        ),
+        AppSpacing.h16,
 
-                  return Stack(
+        // Gym list
+        Expanded(
+          child: Consumer<HomeProvider>(
+            builder: (context, provider, child) {
+              if (provider.isLoading) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryGreen,
+                  ),
+                );
+              }
+
+              if (provider.gyms.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.screenPaddingH,
-                        ),
-                        itemCount: provider.gyms.length,
-                        itemBuilder: (context, index) {
-                          final gym = provider.gyms[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: GymCard(
-                              name: gym.name,
-                              location: gym.locality,
-                              distance: gym.distance,
-                              rating: gym.rating,
-                              reviewCount: gym.reviewCount,
-                              price: gym.pricePerDay,
-                              is24x7: gym.is24x7,
-                              hasTrainer: gym.hasTrainer,
-                              imageUrl: gym.images.isNotEmpty
-                                  ? gym.images.first
-                                  : null,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => GymDetailScreen(gymId: gym.id),
-                                  ),
-                                );
-                              },
-                            ),
-                          );
-                        },
+                      Icon(
+                        Icons.search_off,
+                        size: 64,
+                        color: AppColors.textSecondary,
                       ),
-
-                      // Map view toggle button
-                      Positioned(
-                        bottom: 16,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: _buildMapViewButton(context),
+                      AppSpacing.h16,
+                      Text(
+                        'No gyms found',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: AppColors.textSecondary,
                         ),
-                      ),
-
-                      // Rate prompt
-                      Consumer<AttendanceProvider>(
-                        builder: (context, attendanceProvider, child) {
-                          if (!attendanceProvider.showRatePrompt) {
-                            return const SizedBox.shrink();
-                          }
-                          return Positioned(
-                            bottom: 70,
-                            left: AppDimensions.screenPaddingH,
-                            right: AppDimensions.screenPaddingH,
-                            child: _buildRatePrompt(
-                              context,
-                              attendanceProvider.lastVisitedGymId ?? '',
-                              attendanceProvider.lastVisitedGymName ?? '',
-                            ),
-                          );
-                        },
                       ),
                     ],
-                  );
-                },
-              ),
-            ),
-          ],
+                  ),
+                );
+              }
+
+              return Stack(
+                children: [
+                  ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.screenPaddingH,
+                    ),
+                    itemCount: provider.gyms.length,
+                    itemBuilder: (context, index) {
+                      final gym = provider.gyms[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: GymCard(
+                          name: gym.name,
+                          location: gym.locality,
+                          distance: gym.distance,
+                          rating: gym.rating,
+                          reviewCount: gym.reviewCount,
+                          price: gym.pricePerDay,
+                          is24x7: gym.is24x7,
+                          hasTrainer: gym.hasTrainer,
+                          imageUrl: gym.images.isNotEmpty
+                              ? gym.images.first
+                              : null,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => GymDetailScreen(gymId: gym.id),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+
+                  // Map view toggle button
+                  Positioned(
+                    bottom: 16,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: _buildMapViewButton(context),
+                    ),
+                  ),
+
+                  // Rate prompt
+                  Consumer<AttendanceProvider>(
+                    builder: (context, attendanceProvider, child) {
+                      if (!attendanceProvider.showRatePrompt) {
+                        return const SizedBox.shrink();
+                      }
+                      return Positioned(
+                        bottom: 70,
+                        left: AppDimensions.screenPaddingH,
+                        right: AppDimensions.screenPaddingH,
+                        child: _buildRatePrompt(
+                          context,
+                          attendanceProvider.lastVisitedGymId ?? '',
+                          attendanceProvider.lastVisitedGymName ?? '',
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
         ),
-      ),
+      ],
+    );
+
+    // Return without Scaffold when used in MainScreen
+    if (!widget.showAppBar) {
+      return contentColumn;
+    }
+
+    // Return with Scaffold when standalone
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
+      endDrawer: const SideMenuScreen(),
+      body: SafeArea(child: contentColumn),
     );
   }
 

@@ -5,8 +5,9 @@ import '../../core/widgets/widgets.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import 'success_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class ConfirmationScreen extends StatelessWidget {
+class ConfirmationScreen extends StatefulWidget {
   final GymModel gym;
   final ServiceModel service;
 
@@ -15,6 +16,118 @@ class ConfirmationScreen extends StatelessWidget {
     required this.gym,
     required this.service,
   });
+
+  @override
+  State<ConfirmationScreen> createState() => _ConfirmationScreenState();
+}
+
+class _ConfirmationScreenState extends State<ConfirmationScreen> with WidgetsBindingObserver {
+  bool _isWaitingForPaymentReturn = false;
+  String? _pendingBookingId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Detect when user returns to app from browser
+    if (state == AppLifecycleState.resumed && _isWaitingForPaymentReturn) {
+      _handlePaymentReturn();
+    }
+  }
+
+  Future<void> _handlePaymentReturn() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isWaitingForPaymentReturn = false;
+    });
+
+    // Show processing dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          backgroundColor: AppColors.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primaryGreen),
+              const SizedBox(height: 24),
+              Text(
+                'Processing Payment',
+                style: AppTextStyles.labelLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please wait while we confirm your payment...',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // Wait 7 seconds
+    debugPrint("⏳ Waiting 7 seconds after user returned to app...");
+    await Future.delayed(const Duration(seconds: 7));
+
+    if (!mounted) return;
+
+    final provider = context.read<BookingProvider>();
+
+    // Verify payment
+    debugPrint("🔍 Verifying payment...");
+    final verified = await provider.verifyPayment(_pendingBookingId!);
+
+    if (!mounted) return;
+
+    // Close processing dialog
+    Navigator.of(context).pop();
+
+    if (verified) {
+      // Fetch booking details
+      debugPrint("✅ Payment verified, fetching booking details...");
+      await provider.getBookingDetails(_pendingBookingId!);
+
+      if (!mounted) return;
+
+      // Navigate to success screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const SuccessScreen(),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment verification failed. Please check your bookings.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,11 +172,11 @@ class ConfirmationScreen extends StatelessWidget {
                                     color: AppColors.surfaceLight,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: gym.images.isNotEmpty
+                                  child: widget.gym.images.isNotEmpty
                                       ? ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
                                     child: Image.network(
-                                      gym.images.first,
+                                      widget.gym.images.first,
                                       fit: BoxFit.cover,
                                       errorBuilder: (context, error, stack) {
                                         return const Icon(
@@ -84,12 +197,12 @@ class ConfirmationScreen extends StatelessWidget {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        gym.name,
+                                        widget.gym.name,
                                         style: AppTextStyles.labelMedium,
                                       ),
                                       AppSpacing.h4,
                                       Text(
-                                        gym.locality,
+                                        widget.gym.locality,
                                         style: AppTextStyles.bodySmall.copyWith(
                                           color: AppColors.textSecondary,
                                         ),
@@ -122,11 +235,11 @@ class ConfirmationScreen extends StatelessWidget {
                                 color: AppColors.surfaceLight,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: service.image != null
+                              child: widget.service.image != null
                                   ? ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: Image.network(
-                                  service.image!,
+                                  widget.service.image!,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stack) {
                                     return const Icon(
@@ -148,10 +261,10 @@ class ConfirmationScreen extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(service.name, style: AppTextStyles.labelMedium),
+                                  Text(widget.service.name, style: AppTextStyles.labelMedium),
                                   AppSpacing.h4,
                                   Text(
-                                    '₹${service.pricePerSlot} per slot',
+                                    '₹${widget.service.pricePerSlot} per slot',
                                     style: AppTextStyles.bodySmall.copyWith(
                                       color: AppColors.textSecondary,
                                     ),
@@ -258,7 +371,7 @@ class ConfirmationScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             _buildPaymentRow(
-                              '${service.name} (x$slotCount)',
+                              '${widget.service.name} (x$slotCount)',
                               provider.serviceTotal,
                             ),
                             AppSpacing.h12,
@@ -297,14 +410,46 @@ class ConfirmationScreen extends StatelessWidget {
                       provider.setBookingFor(
                         context.read<AuthProvider>().user?.name ?? 'Guest',
                       );
-                      final booking = await provider.createServiceBooking();
-                      if (booking != null && context.mounted) {
+
+                      // Call API
+                      final response = await provider.createServiceBooking();
+
+                      if (!context.mounted) return;
+
+                      if (response == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(provider.error ?? 'Failed to create booking'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                        return;
+                      }
+
+                      final booking = response['booking'];
+                      final paymentLinkUrl = booking['payment_link_url'];  // Extract from booking object
+                      final bookingId = booking['id'];
+
+                      debugPrint("📋 Booking: $booking");
+                      debugPrint("📋 Booking ID: $bookingId");
+                      debugPrint("📋 Payment Link URL: $paymentLinkUrl");
+
+                      if (paymentLinkUrl == null || paymentLinkUrl.toString().isEmpty) {
+                        // Member - no payment needed
+                        // Store booking details in provider for SuccessScreen to use
+                        await provider.getBookingDetails(bookingId);
+
+                        if (!context.mounted) return;
+
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => SuccessScreen(booking: booking),
+                            builder: (_) => const SuccessScreen(),
                           ),
                         );
+                      } else {
+                        // Non-member - open payment and wait for return
+                        await _handlePaymentFlow(context, bookingId, paymentLinkUrl);
                       }
                     },
                   ),
@@ -353,5 +498,77 @@ class ConfirmationScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  // Handle payment flow for non-members
+  Future<void> _handlePaymentFlow(
+      BuildContext context,
+      String bookingId,
+      String paymentUrl,
+      ) async {
+    debugPrint("🔗 Payment URL: $paymentUrl");
+    debugPrint("📋 Booking ID: $bookingId");
+
+    try {
+      // Store booking ID for later verification
+      setState(() {
+        _pendingBookingId = bookingId;
+        _isWaitingForPaymentReturn = true;
+      });
+
+      // Open payment URL
+      await _openPaymentLink(paymentUrl);
+
+      debugPrint("✅ Payment URL opened, waiting for user to return...");
+
+    } catch (e) {
+      debugPrint("❌ Payment URL Error: $e");
+
+      setState(() {
+        _isWaitingForPaymentReturn = false;
+        _pendingBookingId = null;
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open payment: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  // Open payment URL with proper canLaunchUrl check
+  Future<void> _openPaymentLink(String paymentLink) async {
+    try {
+      final Uri url = Uri.parse(paymentLink);
+      debugPrint("🔗 Parsed URI: $url");
+
+      final canLaunch = await canLaunchUrl(url);
+      debugPrint("🔗 Can launch URL: $canLaunch");
+
+      if (!canLaunch) {
+        debugPrint("⚠️ canLaunchUrl returned false, trying anyway...");
+      }
+
+      // Try to launch even if canLaunchUrl returns false (common issue with some URLs)
+      final launched = await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+
+      debugPrint("🔗 Launch result: $launched");
+
+      if (!launched) {
+        throw Exception('Could not launch payment link');
+      }
+
+      debugPrint("✅ Payment URL opened successfully");
+    } catch (e) {
+      debugPrint("❌ Error opening payment link: ${e.toString()}");
+      rethrow;
+    }
   }
 }

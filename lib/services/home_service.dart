@@ -114,4 +114,38 @@ class HomeService {
       throw Exception("Network error. Please check your connection.");
     }
   }
+
+  Future<List<BannerModel>> fetchBanners() async {
+    // Banner API uses different base URL
+    final uri = Uri.parse("http://ec2-13-49-66-20.eu-north-1.compute.amazonaws.com:3000/api/v1/uploads/documents");
+
+    debugPrint("✅ Fetch Banners API → $uri");
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+      );
+
+      debugPrint("✅ Fetch Banners Status: ${response.statusCode}");
+      debugPrint("✅ Fetch Banners Body: ${response.body}");
+
+      final result = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && result['success'] == true) {
+        final bannerResponse = BannerResponse.fromJson(result);
+        debugPrint("✅ Loaded ${bannerResponse.banners.length} banner images");
+        return bannerResponse.banners;
+      } else {
+        throw Exception(result['message'] ?? "Failed to load banners");
+      }
+    } catch (e) {
+      debugPrint("❌ Fetch Banners API Error: $e");
+      // Return empty list instead of throwing error to prevent blocking UI
+      return [];
+    }
+  }
 }

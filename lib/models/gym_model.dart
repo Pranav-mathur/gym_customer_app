@@ -1,3 +1,5 @@
+import 'booking_model.dart';
+
 class GymModel {
   final String id;
   final String name;
@@ -20,6 +22,7 @@ class GymModel {
   final List<EquipmentModel> equipments;
   final List<BusinessHours> businessHours;
   final bool isOpen;
+  final List<MembershipFee> membershipFees;
 
   GymModel({
     required this.id,
@@ -43,9 +46,28 @@ class GymModel {
     this.equipments = const [],
     this.businessHours = const [],
     this.isOpen = true,
+    this.membershipFees = const [],
   });
 
   factory GymModel.fromJson(Map<String, dynamic> json) {
+    // Helper to safely parse lat/lng which might be Map or number
+    double _parseLatLng(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) return value.toDouble();
+      if (value is Map) {
+        // Handle cases like {lat: x} or {latitude: x}
+        return (value['lat'] ?? value['latitude'] ?? value['lng'] ?? value['longitude'] ?? 0.0).toDouble();
+      }
+      return 0.0;
+    }
+
+    double _parseNumber(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+
     return GymModel(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
@@ -53,10 +75,10 @@ class GymModel {
       locality: json['locality'] ?? '',
       city: json['city'] ?? '',
       pincode: json['pincode'] ?? '',
-      latitude: (json['latitude'] ?? 0.0).toDouble(),
-      longitude: (json['longitude'] ?? 0.0).toDouble(),
-      distance: (json['distance'] ?? 0.0).toDouble(),
-      rating: (json['rating'] ?? 0.0).toDouble(),
+      latitude: _parseLatLng(json['latitude']),
+      longitude: _parseLatLng(json['longitude']),
+      distance: _parseNumber(json['distance']),
+      rating: _parseNumber(json['rating']),
       reviewCount: json['review_count'] ?? json['reviewCount'] ?? 0,
       pricePerDay: json['price_per_day'] ?? json['pricePerDay'] ?? 0,
       is24x7: json['is_24x7'] ?? json['is24x7'] ?? false,
@@ -64,22 +86,26 @@ class GymModel {
       images: List<String>.from(json['images'] ?? []),
       aboutUs: json['about_us'] ?? json['aboutUs'],
       facilities: (json['facilities'] as List<dynamic>?)
-              ?.map((f) => FacilityModel.fromJson(f))
-              .toList() ??
+          ?.map((f) => FacilityModel.fromJson(f))
+          .toList() ??
           [],
       services: (json['services'] as List<dynamic>?)
-              ?.map((s) => ServiceModel.fromJson(s))
-              .toList() ??
+          ?.map((s) => ServiceModel.fromJson(s))
+          .toList() ??
           [],
       equipments: (json['equipments'] as List<dynamic>?)
-              ?.map((e) => EquipmentModel.fromJson(e))
-              .toList() ??
+          ?.map((e) => EquipmentModel.fromJson(e))
+          .toList() ??
           [],
       businessHours: (json['business_hours'] as List<dynamic>?)
-              ?.map((b) => BusinessHours.fromJson(b))
-              .toList() ??
+          ?.map((b) => BusinessHours.fromJson(b))
+          .toList() ??
           [],
       isOpen: json['is_open'] ?? json['isOpen'] ?? true,
+      membershipFees: (json['membership_fees'] as List<dynamic>?)
+          ?.map((m) => MembershipFee.fromJson(m))
+          .toList() ??
+          [],
     );
   }
 
@@ -106,6 +132,7 @@ class GymModel {
       'equipments': equipments.map((e) => e.toJson()).toList(),
       'business_hours': businessHours.map((b) => b.toJson()).toList(),
       'is_open': isOpen,
+      'membership_fees': membershipFees.map((m) => m.toJson()).toList(),
     };
   }
 
@@ -251,5 +278,81 @@ class BusinessHours {
       'open_time': openTime,
       'close_time': closeTime,
     };
+  }
+}
+
+class MembershipFee {
+  final String id;
+  final String type;
+  final int durationMonths;
+  final int price;
+  final String currency;
+  final List<String> features;
+
+  MembershipFee({
+    required this.id,
+    required this.type,
+    required this.durationMonths,
+    required this.price,
+    this.currency = 'INR',
+    this.features = const [],
+  });
+
+  factory MembershipFee.fromJson(Map<String, dynamic> json) {
+    return MembershipFee(
+      id: json['_id'] ?? json['id'] ?? '',
+      type: json['type'] ?? '',
+      durationMonths: json['duration_months'] ?? json['durationMonths'] ?? 1,
+      price: json['price'] ?? 0,
+      currency: json['currency'] ?? 'INR',
+      features: json['features'] != null
+          ? List<String>.from(json['features'])
+          : [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'duration_months': durationMonths,
+      'price': price,
+      'currency': currency,
+      'features': features,
+    };
+  }
+
+  // Convert to SubscriptionModel for UI
+  SubscriptionModel toSubscriptionModel({String? gymId, String? gymName}) {
+    // Map duration_months to proper duration string
+    String duration;
+    switch (durationMonths) {
+      case 1:
+        duration = '1_month';
+        break;
+      case 3:
+        duration = '3_months';
+        break;
+      case 6:
+        duration = '6_months';
+        break;
+      case 12:
+        duration = '1_year';
+        break;
+      default:
+        duration = '${durationMonths}_months';
+    }
+
+    String durationLabel = type;
+
+    return SubscriptionModel(
+      id: id,
+      type: 'single_gym',
+      duration: duration,
+      durationLabel: durationLabel,
+      price: price,
+      gymId: gymId,
+      gymName: gymName,
+    );
   }
 }

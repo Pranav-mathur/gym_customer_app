@@ -15,6 +15,10 @@ class HomeProvider extends ChangeNotifier {
   String _searchQuery = '';
   ViewMode _viewMode = ViewMode.list;
 
+  // Banners
+  List<BannerModel> _banners = [];
+  bool _isLoadingBanners = false;
+
   // User profile
   UserModel? _userProfile;
   bool _isLoadingProfile = false;
@@ -47,6 +51,10 @@ class HomeProvider extends ChangeNotifier {
           _maxDistance != null ||
           _minRating != null;
 
+  // Banners getters
+  List<BannerModel> get banners => _banners;
+  bool get isLoadingBanners => _isLoadingBanners;
+
   // User profile getters
   UserModel? get userProfile => _userProfile;
   bool get isLoadingProfile => _isLoadingProfile;
@@ -64,6 +72,24 @@ class HomeProvider extends ChangeNotifier {
     } catch (e) {
       _isLoadingProfile = false;
       debugPrint("❌ Load User Profile Error: $e");
+      notifyListeners();
+    }
+  }
+
+  // Load banners from API
+  Future<void> loadBanners() async {
+    try {
+      _isLoadingBanners = true;
+      notifyListeners();
+
+      final service = HomeService();
+      _banners = await service.fetchBanners();
+
+      _isLoadingBanners = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoadingBanners = false;
+      debugPrint("❌ Load Banners Error: $e");
       notifyListeners();
     }
   }

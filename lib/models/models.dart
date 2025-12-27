@@ -5,3 +5,4 @@ export 'booking_model.dart';
 export 'attendance_model.dart';
 export 'notification_model.dart';
 export 'review_model.dart';
+export 'banner_model.dart';

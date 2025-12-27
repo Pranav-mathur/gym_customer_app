@@ -1,19 +1,84 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/models.dart';
+import '../../providers/providers.dart';
 import '../main_screen.dart';
 
 class SuccessScreen extends StatelessWidget {
-  final BookingModel booking;
+  const SuccessScreen({super.key});
 
-  const SuccessScreen({
-    super.key,
-    required this.booking,
-  });
+  // Convert API response to BookingModel
+  BookingModel? _getBookingFromProvider(BuildContext context) {
+    final details = context.watch<BookingProvider>().currentBookingDetails;
+    if (details == null) return null;
+
+    return BookingModel(
+      id: details['id'] ?? '',
+      gymId: details['gym_id'] ?? '',
+      gymName: details['gym_name'] ?? '',
+      gymAddress: details['gym_address'] ?? '',
+      type: BookingType.service,
+      status: details['status'] == 'confirmed'
+          ? BookingStatus.confirmed
+          : BookingStatus.pending,
+      serviceId: details['service_id'] ?? '',
+      serviceName: details['service_name'] ?? '',
+      slots: details['slots'] ?? 1,
+      bookingDate: details['booking_date'] != null
+          ? DateTime.parse(details['booking_date'])
+          : DateTime.now(),
+      timeSlot: details['time_slot'] ?? '',
+      bookingFor: details['booking_for'] ?? '',
+      amount: (details['amount'] ?? 0).toDouble(),
+      visitingFee: (details['visiting_fee'] ?? 0).toDouble(),
+      tax: (details['tax'] ?? 0).toDouble(),
+      totalAmount: (details['total_amount'] ?? 0).toDouble(),
+      paymentMethod: details['payment_method'],
+      paymentStatus: details['payment_status'],
+      qrCode: details['qr_code'],
+      instructions: details['instructions'] ?? '1. Arrive 5mins early to ensure timely entry\n2. Bring mobile, water bottle and workout shoes',
+      createdAt: details['created_at'] != null
+          ? DateTime.parse(details['created_at'])
+          : DateTime.now(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final booking = _getBookingFromProvider(context);
+
+    if (booking == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 60, color: AppColors.error),
+              AppSpacing.h16,
+              Text(
+                'No booking details available',
+                style: AppTextStyles.bodyMedium,
+              ),
+              AppSpacing.h24,
+              TextButton(
+                onPressed: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MainScreen()),
+                        (route) => false,
+                  );
+                },
+                child: const Text('Go to Home'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -30,7 +95,7 @@ class SuccessScreen extends StatelessWidget {
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (_) => const MainScreen()),
-                        (route) => false,
+                            (route) => false,
                       );
                     },
                     child: const Icon(Icons.arrow_back),
@@ -99,122 +164,173 @@ class SuccessScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      AppSpacing.h12,
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceLight,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Reach atleast 5mins before your booking time',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
                       AppSpacing.h16,
-                      Text(
-                        'Selected Time',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                      const Divider(color: AppColors.border),
+                      AppSpacing.h16,
+
+                      // Service type row
+                      _buildInfoRow(
+                        Icons.fitness_center,
+                        'Service',
+                        booking.serviceName ?? 'N/A',
                       ),
-                      AppSpacing.h4,
+                      AppSpacing.h12,
+
+                      // Slots row
+                      _buildInfoRow(
+                        Icons.schedule,
+                        'Duration',
+                        '${booking.slots} ${booking.slots == 1 ? 'slot' : 'slots'}',
+                      ),
+                    ],
+                  ),
+                ),
+                AppSpacing.h16,
+
+                // Date and time card
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Row(
                         children: [
-                          const Icon(Icons.access_time, size: 16),
+                          const Icon(Icons.calendar_today, color: AppColors.primaryGreen, size: 20),
                           AppSpacing.w8,
                           Text(
-                            booking.timeSlot ?? 'Everyday 10:00 AM - 11 AM',
-                            style: AppTextStyles.bodyMedium,
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Reschedule',
-                            style: AppTextStyles.labelSmall.copyWith(
-                              color: AppColors.primaryGreen,
-                            ),
+                            'Schedule',
+                            style: AppTextStyles.labelMedium,
                           ),
                         ],
                       ),
-                      if (booking.type == BookingType.membership) ...[
-                        AppSpacing.h12,
+                      AppSpacing.h12,
+                      const Divider(color: AppColors.border),
+                      AppSpacing.h12,
+                      _buildInfoRow(
+                        Icons.calendar_month,
+                        'Date',
+                        AppFormatters.formatDate(booking.bookingDate),
+                      ),
+                      AppSpacing.h12,
+                      _buildInfoRow(
+                        Icons.access_time,
+                        'Time',
+                        booking.timeSlot ?? 'N/A',
+                      ),
+                      AppSpacing.h12,
+                      _buildInfoRow(
+                        Icons.person_outline,
+                        'Booking For',
+                        booking.bookingFor,
+                      ),
+                    ],
+                  ),
+                ),
+                AppSpacing.h16,
+
+                // Payment details card
+                _buildCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.payment, color: AppColors.primaryGreen, size: 20),
+                          AppSpacing.w8,
+                          Text(
+                            'Payment Details',
+                            style: AppTextStyles.labelMedium,
+                          ),
+                        ],
+                      ),
+                      AppSpacing.h12,
+                      const Divider(color: AppColors.border),
+                      AppSpacing.h12,
+                      _buildPaymentRow('Service Amount', booking.amount),
+                      AppSpacing.h8,
+                      _buildPaymentRow('Visiting Fee', booking.visitingFee ?? 0),
+                      AppSpacing.h8,
+                      _buildPaymentRow('Tax', booking.tax ?? 0),
+                      AppSpacing.h12,
+                      const Divider(color: AppColors.border),
+                      AppSpacing.h12,
+                      _buildPaymentRow(
+                        'Total Paid',
+                        booking.totalAmount,
+                        isBold: true,
+                      ),
+                    ],
+                  ),
+                ),
+                AppSpacing.h16,
+
+                // QR Code card (if available)
+                if (booking.qrCode != null && booking.qrCode!.isNotEmpty)
+                  _buildCard(
+                    child: Column(
+                      children: [
                         Text(
-                          'Membership Type',
+                          'Entry QR Code',
+                          style: AppTextStyles.labelMedium,
+                        ),
+                        AppSpacing.h16,
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Image.network(
+                            booking.qrCode!,
+                            width: 200,
+                            height: 200,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stack) {
+                              return Container(
+                                width: 200,
+                                height: 200,
+                                color: AppColors.surfaceLight,
+                                child: const Icon(
+                                  Icons.qr_code_2,
+                                  size: 100,
+                                  color: AppColors.textSecondary,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        AppSpacing.h16,
+                        Text(
+                          'Show this QR code at gym entrance',
                           style: AppTextStyles.caption.copyWith(
                             color: AppColors.textSecondary,
                           ),
-                        ),
-                        AppSpacing.h4,
-                        Text(
-                          booking.membershipType ?? 'Single Gym',
-                          style: AppTextStyles.bodyMedium,
+                          textAlign: TextAlign.center,
                         ),
                       ],
-                      AppSpacing.h12,
-                      Text(
-                        'Booking For',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      AppSpacing.h4,
-                      Row(
-                        children: [
-                          const Icon(Icons.person_outline, size: 16),
-                          AppSpacing.w8,
-                          Text(booking.bookingFor, style: AppTextStyles.bodyMedium),
-                        ],
-                      ),
-                      if (booking.serviceName != null) ...[
-                        AppSpacing.h12,
-                        Row(
-                          children: [
-                            Text(
-                              'Services',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              booking.serviceName!,
-                              style: AppTextStyles.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-                AppSpacing.h16,
 
-                // Instructions
+                if (booking.qrCode != null && booking.qrCode!.isNotEmpty)
+                  AppSpacing.h16,
+
+                // Instructions card
                 _buildCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.article_outlined, size: 18),
+                          const Icon(Icons.info_outline, color: AppColors.primaryGreen, size: 20),
                           AppSpacing.w8,
-                          Text('Instructions', style: AppTextStyles.labelMedium),
+                          Text(
+                            'Important Instructions',
+                            style: AppTextStyles.labelMedium,
+                          ),
                         ],
                       ),
                       AppSpacing.h12,
                       Text(
-                        '1. Arrive 5mins early to ensure timely entry',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      AppSpacing.h4,
-                      Text(
-                        '2. Bring mobile, water bottle and workout shoes,',
+                        booking.instructions ?? '1. Arrive 5mins early to ensure timely entry\n2. Bring mobile, water bottle and workout shoes',
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -222,112 +338,23 @@ class SuccessScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                AppSpacing.h16,
+                AppSpacing.h32,
 
-                // Payment details
-                _buildCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Payment Details',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      AppSpacing.h12,
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Amount', style: AppTextStyles.bodyMedium),
-                          Text(
-                            '₹${booking.totalAmount.toInt()}',
-                            style: AppTextStyles.labelMedium,
-                          ),
-                        ],
-                      ),
-                      AppSpacing.h8,
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Paid via',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            booking.paymentMethod ?? 'HDFC Card | xx7354',
-                            style: AppTextStyles.labelMedium,
-                          ),
-                        ],
-                      ),
-                    ],
+                // Action buttons
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MainScreen()),
+                            (route) => false,
+                      );
+                    },
+                    child: const Text('Back to Home'),
                   ),
                 ),
-                AppSpacing.h16,
-
-                // Order info
-                _buildCard(
-                  child: Row(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Order ID',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(booking.id.substring(0, 8), style: AppTextStyles.bodyMedium),
-                        ],
-                      ),
-                      const Spacer(),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            'Placed on',
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            AppFormatters.formatDateWithTime(booking.createdAt),
-                            style: AppTextStyles.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                AppSpacing.h16,
-
-                // Need support
-                _buildCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Need Support?',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      AppSpacing.h8,
-                      Row(
-                        children: [
-                          const Icon(Icons.headset_mic_outlined, size: 18),
-                          AppSpacing.w8,
-                          const Text('Contact Us', style: AppTextStyles.bodyMedium),
-                          const Spacer(),
-                          const Icon(Icons.chevron_right, size: 20),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                AppSpacing.h24,
               ],
             ),
           ),
@@ -341,11 +368,60 @@ class SuccessScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: AppColors.cardGradient,
+        color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
       child: child,
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: AppColors.textSecondary),
+        AppSpacing.w12,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              AppSpacing.h4,
+              Text(
+                value,
+                style: AppTextStyles.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentRow(String label, double amount, {bool isBold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: isBold
+              ? AppTextStyles.labelMedium
+              : AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          '₹${amount.toInt()}',
+          style: isBold
+              ? AppTextStyles.labelLarge
+              : AppTextStyles.bodyMedium,
+        ),
+      ],
     );
   }
 }
