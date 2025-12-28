@@ -48,14 +48,32 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   }
 
   Future<void> _saveAddress() async {
-    // Validation
-    if (_houseFlatController.text.trim().isEmpty ||
-        _roadAreaController.text.trim().isEmpty ||
-        _streetCityController.text.trim().isEmpty) {
+    // Detailed validation with specific field messages
+    List<String> emptyFields = [];
+
+    if (_houseFlatController.text.trim().isEmpty) {
+      emptyFields.add('House/Flat/Block');
+    }
+
+    if (_roadAreaController.text.trim().isEmpty) {
+      emptyFields.add('Apartment/Road/Area');
+    }
+
+    if (_streetCityController.text.trim().isEmpty) {
+      emptyFields.add('Street and City');
+    }
+
+    // Show validation errors if any fields are empty
+    if (emptyFields.isNotEmpty) {
+      String message = emptyFields.length == 1
+          ? 'Please fill in ${emptyFields[0]}'
+          : 'Please fill in: ${emptyFields.join(', ')}';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all fields'),
+        SnackBar(
+          content: Text(message),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
         ),
       );
       return;

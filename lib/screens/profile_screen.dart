@@ -179,12 +179,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleUpdate() async {
-    // Validate required fields
+    // Validate required fields - only for Update Profile, not Skip
+    List<String> emptyFields = [];
+
     if (_nameController.text.trim().isEmpty) {
+      emptyFields.add('Name');
+    }
+
+    if (_selectedGender == null || _selectedGender!.isEmpty) {
+      emptyFields.add('Gender');
+    }
+
+    if (_emailController.text.trim().isEmpty) {
+      emptyFields.add('Email');
+    }
+
+    // Check if profile image is uploaded (only during initial setup)
+    if (widget.isInitialSetup && _uploadedImageUrl == null && _profileImage == null) {
+      emptyFields.add('Profile Image');
+    }
+
+    // Show validation errors if any fields are empty
+    if (emptyFields.isNotEmpty) {
+      String message = emptyFields.length == 1
+          ? 'Please fill in ${emptyFields[0]}'
+          : 'Please fill in: ${emptyFields.join(', ')}';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your name'),
+        SnackBar(
+          content: Text(message),
           backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
         ),
       );
       return;

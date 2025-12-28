@@ -7,7 +7,12 @@ import '../../providers/providers.dart';
 import '../main_screen.dart';
 
 class SuccessScreen extends StatelessWidget {
-  const SuccessScreen({super.key});
+  final bool isFromBookingsList;
+
+  const SuccessScreen({
+    super.key,
+    this.isFromBookingsList = false,
+  });
 
   // Convert API response to BookingModel
   BookingModel? _getBookingFromProvider(BuildContext context) {
@@ -92,11 +97,17 @@ class SuccessScreen extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MainScreen()),
-                            (route) => false,
-                      );
+                      if (isFromBookingsList) {
+                        // If coming from bookings list, go back to it
+                        Navigator.pop(context);
+                      } else {
+                        // Otherwise go to main screen
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MainScreen()),
+                              (route) => false,
+                        );
+                      }
                     },
                     child: const Icon(Icons.arrow_back),
                   ),
@@ -345,13 +356,19 @@ class SuccessScreen extends StatelessWidget {
                   width: double.infinity,
                   child: TextButton(
                     onPressed: () {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MainScreen()),
-                            (route) => false,
-                      );
+                      if (isFromBookingsList) {
+                        // If coming from bookings list, go back to it
+                        Navigator.pop(context);
+                      } else {
+                        // Otherwise go to main screen
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MainScreen()),
+                              (route) => false,
+                        );
+                      }
                     },
-                    child: const Text('Back to Home'),
+                    child: Text(isFromBookingsList ? 'Back to Bookings' : 'Back to Home'),
                   ),
                 ),
                 AppSpacing.h24,

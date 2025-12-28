@@ -4,6 +4,7 @@ import '../core/constants/constants.dart';
 import '../core/widgets/widgets.dart';
 import '../core/utils/formatters.dart';
 import '../providers/providers.dart';
+import 'booking_flow/success_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -17,6 +18,57 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   void initState() {
     super.initState();
     context.read<BookingProvider>().loadBookings();
+  }
+
+  Future<void> _viewBookingDetails(String bookingId) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryGreen),
+      ),
+    );
+
+    try {
+      final provider = context.read<BookingProvider>();
+      final details = await provider.getBookingDetails(bookingId);
+
+      if (!mounted) return;
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      if (details != null) {
+        // Navigate to success screen with booking details
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SuccessScreen(isFromBookingsList: true),
+          ),
+        );
+      } else {
+        // Show error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.error ?? 'Failed to load booking details'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -75,49 +127,63 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             itemCount: provider.bookings.length,
             itemBuilder: (context, index) {
               final booking = provider.bookings[index];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 1),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                decoration: BoxDecoration(
-                  gradient: index == 0
-                      ? AppColors.cardGradient
-                      : null,
-                  color: index != 0 ? AppColors.cardBackground : null,
-                  borderRadius: index == 0
-                      ? const BorderRadius.vertical(top: Radius.circular(16))
-                      : index == provider.bookings.length - 1
-                      ? const BorderRadius.vertical(bottom: Radius.circular(16))
-                      : null,
-                  border: Border.all(color: AppColors.border.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              return GestureDetector(
+                onTap: () => _viewBookingDetails(booking.id),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: index == 0
+                        ? AppColors.cardGradient
+                        : null,
+                    color: index != 0 ? AppColors.cardBackground : null,
+                    borderRadius: index == 0
+                        ? const BorderRadius.vertical(top: Radius.circular(16))
+                        : index == provider.bookings.length - 1
+                        ? const BorderRadius.vertical(bottom: Radius.circular(16))
+                        : null,
+                    border: Border.all(color: AppColors.border.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              booking.serviceName ?? booking.membershipType ?? 'Booking',
+                              style: AppTextStyles.labelMedium,
+                            ),
+                            AppSpacing.h4,
+                            Text(
+                              AppFormatters.formatDateWithTime(booking.bookingDate),
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            booking.serviceName ?? booking.membershipType ?? 'Booking',
-                            style: AppTextStyles.labelMedium,
+                            '₹ ${booking.totalAmount.toInt()}',
+                            style: AppTextStyles.labelLarge,
                           ),
                           AppSpacing.h4,
-                          Text(
-                            AppFormatters.formatDateWithTime(booking.bookingDate),
-                            style: AppTextStyles.caption.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                          const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 14,
+                            color: AppColors.textSecondary,
                           ),
                         ],
                       ),
-                    ),
-                    Text(
-                      '₹ ${booking.totalAmount.toInt()}',
-                      style: AppTextStyles.labelLarge,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },

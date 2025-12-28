@@ -5,6 +5,7 @@ import '../core/constants/constants.dart';
 import '../providers/providers.dart';
 import 'profile_screen.dart';
 import 'my_bookings_screen.dart';
+import 'my_subscriptions_screen.dart';
 import 'login_screen.dart';
 
 class SideMenuScreen extends StatelessWidget {
@@ -64,6 +65,10 @@ class SideMenuScreen extends StatelessWidget {
               'My Subscription',
                   () {
                 Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MySubscriptionsScreen()),
+                );
               },
             ),
             AppSpacing.h24,

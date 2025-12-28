@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../core/constants/constants.dart';
 import '../core/widgets/widgets.dart';
 import '../providers/providers.dart';
@@ -11,6 +13,8 @@ import 'notification_screen.dart';
 import 'side_menu_screen.dart';
 import 'set_location_screen.dart';
 import 'review_screen.dart';
+
+enum ViewMode { list, map }
 
 class HomeScreen extends StatefulWidget {
   final bool showAppBar;
@@ -24,21 +28,40 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  ViewMode _viewMode = ViewMode.list;
+  MapController _mapController = MapController();
+  String? _selectedGymId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadNotifications();
-      _loadUserAddresses();
-      _loadBanners();
+      _loadInitialData();
     });
+  }
+
+  // Load all initial data
+  Future<void> _loadInitialData() async {
+    await _loadNotifications();
+    await _loadUserAddresses();
+    await _loadBanners();
+    await _loadGyms();
+  }
+
+  // Refresh all data (for pull-to-refresh)
+  Future<void> _refreshData() async {
+    await Future.wait([
+      _loadNotifications(),
+      _loadUserAddresses(),
+      _loadBanners(),
+      _loadGyms(),
+    ]);
   }
 
   Future<void> _loadNotifications() async {
     final authProvider = context.read<AuthProvider>();
     if (authProvider.token != null) {
-      context.read<NotificationProvider>().fetchNotifications(
+      await context.read<NotificationProvider>().fetchNotifications(
         token: authProvider.token!,
         refresh: true,
       );
@@ -54,6 +77,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadBanners() async {
     await context.read<HomeProvider>().loadBanners();
+  }
+
+  Future<void> _loadGyms() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.token != null) {
+      await context.read<HomeProvider>().loadGyms(token: authProvider.token!);
+    }
   }
 
   @override
@@ -81,14 +111,14 @@ class _HomeScreenState extends State<HomeScreen> {
               return HomeAppBar(
                 location: defaultAddress?.roadArea ?? 'Set Location',
                 address: defaultAddress?.fullAddress ?? 'Tap to set your location',
-                onLocationTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SetLocationScreen(),
-                    ),
-                  );
-                },
+                // onLocationTap: () {
+                //   Navigator.push(
+                //     context,
+                //     MaterialPageRoute(
+                //       builder: (_) => const SetLocationScreen(),
+                //     ),
+                //   );
+                // },
                 onNotificationTap: () {
                   Navigator.push(
                     context,
@@ -226,108 +256,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         AppSpacing.h16,
 
-        // Gym list
+        // Gym list or Map view
         Expanded(
-          child: Consumer<HomeProvider>(
-            builder: (context, provider, child) {
-              if (provider.isLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryGreen,
-                  ),
-                );
-              }
-
-              if (provider.gyms.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.search_off,
-                        size: 64,
-                        color: AppColors.textSecondary,
-                      ),
-                      AppSpacing.h16,
-                      Text(
-                        'No gyms found',
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return Stack(
-                children: [
-                  ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimensions.screenPaddingH,
-                    ),
-                    itemCount: provider.gyms.length,
-                    itemBuilder: (context, index) {
-                      final gym = provider.gyms[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: GymCard(
-                          name: gym.name,
-                          location: gym.locality,
-                          distance: gym.distance,
-                          rating: gym.rating,
-                          reviewCount: gym.reviewCount,
-                          price: gym.pricePerDay,
-                          is24x7: gym.is24x7,
-                          hasTrainer: gym.hasTrainer,
-                          imageUrl: gym.images.isNotEmpty
-                              ? gym.images.first
-                              : null,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => GymDetailScreen(gymId: gym.id),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-
-                  // Map view toggle button
-                  Positioned(
-                    bottom: 16,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: _buildMapViewButton(context),
-                    ),
-                  ),
-
-                  // Rate prompt
-                  Consumer<AttendanceProvider>(
-                    builder: (context, attendanceProvider, child) {
-                      if (!attendanceProvider.showRatePrompt) {
-                        return const SizedBox.shrink();
-                      }
-                      return Positioned(
-                        bottom: 70,
-                        left: AppDimensions.screenPaddingH,
-                        right: AppDimensions.screenPaddingH,
-                        child: _buildRatePrompt(
-                          context,
-                          attendanceProvider.lastVisitedGymId ?? '',
-                          attendanceProvider.lastVisitedGymName ?? '',
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
+          child: _viewMode == ViewMode.list
+              ? _buildListView()
+              : _buildMapView(),
         ),
       ],
     );
@@ -346,53 +279,365 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildIconButton(IconData icon, {VoidCallback? onTap}) {
+  // Build List View
+  Widget _buildListView() {
+    return Consumer<HomeProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.primaryGreen,
+            ),
+          );
+        }
+
+        if (provider.gyms.isEmpty) {
+          return RefreshIndicator(
+            onRefresh: _refreshData,
+            color: AppColors.primaryGreen,
+            backgroundColor: AppColors.cardBackground,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.search_off,
+                        size: 64,
+                        color: AppColors.textSecondary,
+                      ),
+                      AppSpacing.h16,
+                      Text(
+                        'No gyms found',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      AppSpacing.h8,
+                      Text(
+                        'Pull down to refresh',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: _refreshData,
+          color: AppColors.primaryGreen,
+          backgroundColor: AppColors.cardBackground,
+          child: Stack(
+            children: [
+              ListView.builder(
+                padding: const EdgeInsets.only(
+                  left: AppDimensions.screenPaddingH,
+                  right: AppDimensions.screenPaddingH,
+                  bottom: 80, // Add padding for bottom button
+                ),
+                itemCount: provider.gyms.length,
+                itemBuilder: (context, index) {
+                  final gym = provider.gyms[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: GymCard(
+                      name: gym.name,
+                      location: gym.locality,
+                      distance: gym.distance,
+                      rating: gym.rating,
+                      reviewCount: gym.reviewCount,
+                      price: gym.pricePerDay,
+                      is24x7: gym.is24x7,
+                      hasTrainer: gym.hasTrainer,
+                      imageUrl: gym.images.isNotEmpty ? gym.images.first : null,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => GymDetailScreen(gymId: gym.id),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+
+              // Map View toggle button
+              Positioned(
+                bottom: 16,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _viewMode = ViewMode.map;
+                        _selectedGymId = null;
+                        _mapController = MapController(); // Reinitialize controller
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.map, color: AppColors.primaryDark, size: 18),
+                          AppSpacing.w8,
+                          Text(
+                            'Map View',
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.primaryDark,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Rate prompt
+              Consumer<AttendanceProvider>(
+                builder: (context, attendanceProvider, child) {
+                  if (!attendanceProvider.showRatePrompt) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned(
+                    bottom: 70,
+                    left: AppDimensions.screenPaddingH,
+                    right: AppDimensions.screenPaddingH,
+                    child: _buildRatePrompt(
+                      context,
+                      attendanceProvider.lastVisitedGymId ?? '',
+                      attendanceProvider.lastVisitedGymName ?? '',
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Build Map View with OpenStreetMap + CartoDB tiles
+  Widget _buildMapView() {
+    return Consumer2<HomeProvider, LocationProvider>(
+      builder: (context, homeProvider, locationProvider, child) {
+        final gyms = homeProvider.gyms;
+        final currentLocation = locationProvider.currentLocation;
+
+        if (homeProvider.isLoading) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.primaryGreen,
+            ),
+          );
+        }
+
+        if (gyms.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.search_off,
+                  size: 64,
+                  color: AppColors.textSecondary,
+                ),
+                AppSpacing.h16,
+                Text(
+                  'No gyms found',
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final initialPosition = currentLocation != null
+            ? LatLng(currentLocation.latitude, currentLocation.longitude)
+            : (gyms.isNotEmpty
+            ? LatLng(gyms.first.latitude, gyms.first.longitude)
+            : const LatLng(12.9716, 77.5946));
+
+        return Stack(
+          children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: initialPosition,
+                initialZoom: 13.0,
+                minZoom: 3.0,
+                maxZoom: 18.0,
+                onTap: (tapPosition, point) {
+                  // Deselect gym when tapping on map
+                  setState(() => _selectedGymId = null);
+                },
+              ),
+              children: [
+                // CartoDB Dark Matter tiles - Same as set_location_screen
+                TileLayer(
+                  urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                  subdomains: const ['a', 'b', 'c', 'd'],
+                  userAgentPackageName: 'com.bookmyfit.customer',
+                  maxZoom: 19,
+                ),
+                // Marker layer for all gyms
+                MarkerLayer(
+                  markers: gyms.map((gym) {
+                    final isSelected = _selectedGymId == gym.id;
+                    return Marker(
+                      point: LatLng(gym.latitude, gym.longitude),
+                      width: 40,
+                      height: 40,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedGymId = gym.id);
+                          // Move camera to selected gym
+                          _mapController.move(
+                            LatLng(gym.latitude, gym.longitude),
+                            15.0,
+                          );
+                        },
+                        child: Icon(
+                          Icons.location_on,
+                          color: isSelected
+                              ? AppColors.error
+                              : AppColors.primaryGreen,
+                          size: isSelected ? 50 : 40,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+
+            // Selected gym card
+            if (_selectedGymId != null)
+              Positioned(
+                bottom: 70,
+                left: 16,
+                right: 16,
+                child: Builder(
+                  builder: (context) {
+                    final gym = gyms.firstWhere((g) => g.id == _selectedGymId);
+                    return GymCard(
+                      name: gym.name,
+                      location: gym.locality,
+                      distance: gym.distance,
+                      rating: gym.rating,
+                      reviewCount: gym.reviewCount,
+                      price: gym.pricePerDay,
+                      is24x7: gym.is24x7,
+                      hasTrainer: gym.hasTrainer,
+                      imageUrl: gym.images.isNotEmpty ? gym.images.first : null,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => GymDetailScreen(gymId: gym.id),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+
+            // List view toggle button
+            Positioned(
+              bottom: 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _viewMode = ViewMode.list;
+                      _selectedGymId = null;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.list, color: AppColors.primaryDark, size: 18),
+                        AppSpacing.w8,
+                        Text(
+                          'List View',
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildIconButton(IconData icon, {VoidCallback? onTap, Color? backgroundColor, Color? iconColor}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: AppColors.inputBackground,
+          color: backgroundColor ?? AppColors.inputBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.inputBorder),
+          border: Border.all(color: backgroundColor != null ? backgroundColor : AppColors.inputBorder),
         ),
-        child: Icon(icon, color: AppColors.textPrimary, size: 20),
-      ),
-    );
-  }
-
-  Widget _buildMapViewButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const MapViewScreen()),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.primaryGreen,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.location_on,
-              color: AppColors.primaryDark,
-              size: 18,
-            ),
-            AppSpacing.w8,
-            Text(
-              'Map View',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.primaryDark,
-              ),
-            ),
-          ],
-        ),
+        child: Icon(icon, color: iconColor ?? AppColors.textPrimary, size: 20),
       ),
     );
   }

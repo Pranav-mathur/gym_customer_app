@@ -43,6 +43,7 @@ class BookMyFitApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BookingProvider()),
         ChangeNotifierProvider(create: (_) => AttendanceProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
       ],
       child: MaterialApp(
         title: 'BookMyFit',

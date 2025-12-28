@@ -27,6 +27,9 @@ class _MainScreenState extends State<MainScreen> {
     SubscriptionScreen(showAppBar: false),
   ];
 
+  // Track previous index to detect tab changes
+  int _previousIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +41,7 @@ class _MainScreenState extends State<MainScreen> {
     final attendanceProvider = context.read<AttendanceProvider>();
     final authProvider = context.read<AuthProvider>();
     final locationProvider = context.read<LocationProvider>();
+    final addressProvider = context.read<AddressProvider>();
 
     await locationProvider.loadSavedLocation();
 
@@ -49,9 +53,25 @@ class _MainScreenState extends State<MainScreen> {
         homeProvider.loadUserProfile(token),
         homeProvider.loadBanners(),
         attendanceProvider.loadAttendance(),
+        addressProvider.loadAddresses(token), // Load addresses
       ]);
     } else {
       await homeProvider.loadBanners();
+    }
+  }
+
+  // Reload data when switching back to home tab
+  Future<void> _reloadHomeData() async {
+    final authProvider = context.read<AuthProvider>();
+    final addressProvider = context.read<AddressProvider>();
+    final homeProvider = context.read<HomeProvider>();
+
+    final token = authProvider.token;
+    if (token != null) {
+      await Future.wait([
+        addressProvider.loadAddresses(token),
+        homeProvider.loadBanners(),
+      ]);
     }
   }
 
@@ -108,7 +128,14 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          setState(() => _currentIndex = index);
+          // Reload home data when switching back to home tab from another tab
+          if (index == 0 && _previousIndex != 0) {
+            _reloadHomeData();
+          }
+          setState(() {
+            _previousIndex = _currentIndex;
+            _currentIndex = index;
+          });
         },
       ),
     );
