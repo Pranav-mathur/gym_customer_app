@@ -16,6 +16,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   MobileScannerController? _controller;
   bool _isScanning = true;
   bool _isProcessing = false;
+  String _processingMessage = 'Processing check-in...';
 
   @override
   void initState() {
@@ -66,10 +67,33 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
       // Get user location
       final locationProvider = context.read<LocationProvider>();
-      final location = locationProvider.currentLocation;
+      var location = locationProvider.currentLocation;
 
       if (location == null) {
-        throw Exception("Location not available. Please enable location services.");
+        // Location not available, fetch it
+        debugPrint("⚠️ Location not available, fetching current location...");
+
+        setState(() {
+          _processingMessage = 'Getting your location...';
+        });
+
+        final success = await locationProvider.getCurrentLocation();
+
+        if (!success) {
+          throw Exception("Unable to get location. Please enable location services.");
+        }
+
+        location = locationProvider.currentLocation;
+
+        if (location == null) {
+          throw Exception("Location not available. Please try again.");
+        }
+
+        debugPrint("✅ Location fetched: ${location.latitude}, ${location.longitude}");
+
+        setState(() {
+          _processingMessage = 'Processing check-in...';
+        });
       }
 
       // Call check-in API
@@ -103,6 +127,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         setState(() {
           _isScanning = true;
           _isProcessing = false;
+          _processingMessage = 'Processing check-in...';
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,6 +144,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       setState(() {
         _isScanning = true;
         _isProcessing = false;
+        _processingMessage = 'Processing check-in...';
       });
 
       debugPrint("❌ QR Processing Error: $e");
@@ -275,7 +301,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                     ),
                     AppSpacing.h16,
                     Text(
-                      'Processing check-in...',
+                      _processingMessage,
                       style: AppTextStyles.labelMedium.copyWith(
                         color: AppColors.textPrimary,
                       ),
