@@ -68,35 +68,26 @@ class _PaymentProgressScreenState extends State<PaymentProgressScreen> {
 
     try {
       final provider = context.read<BookingProvider>();
-      final verified = await provider.verifyPayment(widget.bookingId);
+
+      // Directly fetch booking details without verify step
+      final bookingDetails = await provider.getBookingDetails(widget.bookingId);
 
       if (!mounted) return;
 
-      if (verified) {
-        // Fetch booking details
-        final bookingDetails = await provider.getBookingDetails(widget.bookingId);
-
-        if (!mounted) return;
-
-        if (bookingDetails != null) {
-          // Navigate to success screen
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SuccessScreen(
-                bookingId: widget.bookingId,
-              ),
-            ),
-          );
-        } else {
-          _showError("Failed to fetch booking details");
-        }
+      if (bookingDetails != null) {
+        // Navigate to success screen (will check payment_status there)
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SuccessScreen(),
+          ),
+        );
       } else {
-        _showError("Payment verification failed");
+        _showError("Failed to fetch details");
       }
     } catch (e) {
       if (mounted) {
-        _showError("Error verifying payment: ${e.toString()}");
+        _showError("Error fetching booking: ${e.toString()}");
       }
     } finally {
       if (mounted) {

@@ -102,23 +102,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
 
     final provider = context.read<BookingProvider>();
 
-    // Verify payment
-    debugPrint("🔍 Verifying membership payment...");
-    final verified = await provider.verifyMembershipPayment(_pendingMembershipId!);
+    // Fetch booking details to check payment status
+    debugPrint("🔍 Fetching booking details...");
+    final bookingDetails = await provider.getBookingDetails(_pendingMembershipId!);
 
     if (!mounted) return;
 
     // Close processing dialog
     Navigator.of(context).pop();
 
-    if (verified) {
-      // Fetch membership details
-      debugPrint("✅ Payment verified, fetching membership details...");
-      await provider.getMembershipDetails(_pendingMembershipId!);
+    if (bookingDetails != null) {
+      // Check payment status
+      final paymentStatus = bookingDetails['payment_status']?.toString().toLowerCase() ?? '';
+      final isPaymentCompleted = paymentStatus == 'completed';
 
-      if (!mounted) return;
+      debugPrint("✅ Payment Status: $paymentStatus");
 
-      // Navigate to success screen
+      // Navigate to success screen with payment status
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -126,13 +126,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             membershipId: _pendingMembershipId!,
             subscriptionType: _selectedType,
             gymName: widget.gym?.name,
+            isPaymentCompleted: isPaymentCompleted,
           ),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Payment verification failed. Please check your memberships.'),
+          content: Text('Failed to fetch booking details. Please check your memberships.'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -676,10 +677,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
                               return;
                             }
 
-                            final paymentLinkUrl = response['payment_link_url'];
-                            final membershipId = response['membership_id'];
+                            // Extract from booking object
+                            final booking = response['booking'];
+                            final paymentLinkUrl = booking?['payment_link_url'];
+                            final membershipId = booking?['id'];
 
-                            debugPrint('✅ Response received');
+                            debugPrint('✅ Response received: $response');
+                            debugPrint('✅ Booking object: $booking');
                             debugPrint('✅ Payment URL: $paymentLinkUrl');
                             debugPrint('✅ Membership ID: $membershipId');
 
@@ -850,22 +854,29 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     final now = DateTime.now();
     DateTime renewalDate;
 
-    switch (duration) {
+    // Handle both old and new formats
+    switch (duration.toLowerCase()) {
+      case 'daily':
       case '1_day':
         renewalDate = now.add(const Duration(days: 1));
         break;
+      case 'weekly':
       case '1_week':
         renewalDate = now.add(const Duration(days: 7));
         break;
+      case 'monthly':
       case '1_month':
         renewalDate = DateTime(now.year, now.month + 1, now.day);
         break;
+      case 'quarterly':
       case '3_months':
         renewalDate = DateTime(now.year, now.month + 3, now.day);
         break;
+      case 'half_yearly':
       case '6_months':
         renewalDate = DateTime(now.year, now.month + 6, now.day);
         break;
+      case 'yearly':
       case '1_year':
         renewalDate = DateTime(now.year + 1, now.month, now.day);
         break;

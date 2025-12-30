@@ -325,23 +325,23 @@ class MembershipFee {
   // Convert to SubscriptionModel for UI
   SubscriptionModel toSubscriptionModel({String? gymId, String? gymName}) {
     // Map duration_months to proper duration string
-    String duration;
-    switch (durationMonths) {
-      case 1:
-        duration = '1_month';
-        break;
-      case 3:
-        duration = '3_months';
-        break;
-      case 6:
-        duration = '6_months';
-        break;
-      case 12:
-        duration = '1_year';
-        break;
-      default:
-        duration = '${durationMonths}_months';
-    }
+    String duration = type;
+    // switch (durationMonths) {
+    //   case 1:
+    //     duration = 'monthly';
+    //     break;
+    //   case 3:
+    //     duration = 'quarterly';
+    //     break;
+    //   case 6:
+    //     duration = 'half_yearly';
+    //     break;
+    //   case 12:
+    //     duration = 'yearly';
+    //     break;
+    //   default:
+    //     duration = '${durationMonths}_months';
+    // }
 
     String durationLabel = type;
 

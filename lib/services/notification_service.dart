@@ -89,7 +89,7 @@ class NotificationService {
   }
 
   Future<bool> markAllAsRead({required String token}) async {
-    final uri = Uri.parse("$baseUrl/notifications/read-all");
+    final uri = Uri.parse("$baseUrl/notifications/mark-all-read");
 
     debugPrint("✅ Mark All as Read API → $uri");
 

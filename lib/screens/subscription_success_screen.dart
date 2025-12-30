@@ -8,12 +8,14 @@ class SubscriptionSuccessScreen extends StatelessWidget {
   final String membershipId;
   final String subscriptionType; // single_gym or multi_gym
   final String? gymName; // Only for single_gym
+  final bool isPaymentCompleted;
 
   const SubscriptionSuccessScreen({
     super.key,
     required this.membershipId,
     required this.subscriptionType,
     this.gymName,
+    this.isPaymentCompleted = true,
   });
 
   @override
@@ -26,8 +28,8 @@ class SubscriptionSuccessScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const CustomAppBar(
-              title: 'Subscription Confirmed',
+            CustomAppBar(
+              title: isPaymentCompleted ? 'Subscription Confirmed' : 'Payment Failed',
               showBackButton: false,
             ),
             Expanded(
@@ -38,28 +40,30 @@ class SubscriptionSuccessScreen extends StatelessWidget {
                   children: [
                     SizedBox(height: screenHeight * 0.05),
 
-                    // Success icon
+                    // Success/Failed icon
                     Container(
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withOpacity(0.1),
+                        color: isPaymentCompleted
+                            ? AppColors.primaryGreen.withOpacity(0.1)
+                            : AppColors.error.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.check_circle,
-                        color: AppColors.primaryGreen,
+                      child: Icon(
+                        isPaymentCompleted ? Icons.check_circle : Icons.error,
+                        color: isPaymentCompleted ? AppColors.primaryGreen : AppColors.error,
                         size: 80,
                       ),
                     ),
 
                     SizedBox(height: screenHeight * 0.03),
 
-                    // Success message
+                    // Message
                     Text(
-                      'Subscription Activated!',
+                      isPaymentCompleted ? 'Subscription Activated!' : 'Payment Failed',
                       style: AppTextStyles.heading2.copyWith(
-                        color: AppColors.primaryGreen,
+                        color: isPaymentCompleted ? AppColors.primaryGreen : AppColors.error,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
@@ -68,9 +72,11 @@ class SubscriptionSuccessScreen extends StatelessWidget {
                     SizedBox(height: screenHeight * 0.01),
 
                     Text(
-                      subscriptionType == 'single_gym'
+                      isPaymentCompleted
+                          ? (subscriptionType == 'single_gym'
                           ? 'Your membership for ${gymName ?? 'the gym'} is now active'
-                          : 'Your multi-gym membership is now active',
+                          : 'Your multi-gym membership is now active')
+                          : 'Your payment could not be processed. Please try again.',
                       style: AppTextStyles.bodyLarge.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -103,14 +109,6 @@ class SubscriptionSuccessScreen extends StatelessWidget {
                             subscriptionType == 'single_gym' ? 'Single Gym' : 'Multi Gym',
                             Icons.fitness_center,
                           ),
-                          const Divider(height: 24),
-
-                          // Duration
-                          _buildDetailRow(
-                            'Validity',
-                            '30 Days',
-                            Icons.access_time,
-                          ),
                           if (gymName != null && subscriptionType == 'single_gym') ...[
                             const Divider(height: 24),
                             _buildDetailRow(
@@ -125,57 +123,67 @@ class SubscriptionSuccessScreen extends StatelessWidget {
 
                     SizedBox(height: screenHeight * 0.03),
 
-                    // Benefits
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Your Benefits',
-                            style: AppTextStyles.labelLarge.copyWith(
-                              color: AppColors.primaryGreen,
-                              fontWeight: FontWeight.bold,
+                    // Benefits (only show if payment completed)
+                    if (isPaymentCompleted)
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.primaryGreen.withOpacity(0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Your Benefits',
+                              style: AppTextStyles.labelLarge.copyWith(
+                                color: AppColors.primaryGreen,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildBenefitItem('No visiting fees at ${subscriptionType == 'single_gym' ? 'this gym' : 'any gym'}'),
-                          const SizedBox(height: 12),
-                          _buildBenefitItem('Access all services'),
-                          const SizedBox(height: 12),
-                          _buildBenefitItem('Priority slot booking'),
-                          const SizedBox(height: 12),
-                          _buildBenefitItem('30-day validity'),
-                        ],
+                            const SizedBox(height: 16),
+                            _buildBenefitItem('No visiting fees at ${subscriptionType == 'single_gym' ? 'this gym' : 'any gym'}'),
+                            const SizedBox(height: 12),
+                            _buildBenefitItem('Access all services'),
+                            const SizedBox(height: 12),
+                            _buildBenefitItem('Priority slot booking'),
+                          ],
+                        ),
                       ),
-                    ),
 
                     SizedBox(height: screenHeight * 0.04),
 
                     // Action buttons
-                    PrimaryButton(
-                      text: 'Book a Service',
-                      onPressed: () {
-                        // Navigate to home/gym listing
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    SecondaryButton(
-                      text: 'View My Memberships',
-                      onPressed: () {
-                        // Navigate to memberships/bookings screen
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                        // TODO: Navigate to memberships tab
-                      },
-                    ),
+                    if (isPaymentCompleted) ...[
+                      PrimaryButton(
+                        text: 'Book a Service',
+                        onPressed: () {
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SecondaryButton(
+                        text: 'View My Memberships',
+                        onPressed: () {
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        },
+                      ),
+                    ] else ...[
+                      PrimaryButton(
+                        text: 'Try Again',
+                        onPressed: () {
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SecondaryButton(
+                        text: 'Go to Home',
+                        onPressed: () {
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),

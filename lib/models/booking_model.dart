@@ -181,7 +181,7 @@ class TimeSlotModel {
 class SubscriptionModel {
   final String id;
   final String type; // single_gym, multi_gym
-  final String duration; // 1_day, 1_week, 1_month, 3_months, 1_year
+  final String duration; // daily, weekly, monthly, quarterly, half_yearly, yearly
   final String durationLabel;
   final int price;
   final int? originalPrice;

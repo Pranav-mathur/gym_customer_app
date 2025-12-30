@@ -87,6 +87,30 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
 
             return Column(
               children: [
+                // Back button at top
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBackground,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: AppColors.textPrimary,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
                 // Spacer to push content to bottom
                 const Spacer(),
 
@@ -122,7 +146,8 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                       SizedBox(height: screenHeight * 0.025),
 
                       // Main content - Date list + Time slots
-                      IntrinsicHeight(
+                      SizedBox(
+                        height: screenHeight * 0.4, // Fixed height for scrolling
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -178,7 +203,7 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
 
                             SizedBox(width: screenWidth * 0.02),
 
-                            // Right side - Time slots
+                            // Right side - Time slots (Scrollable)
                             Expanded(
                               child: bookingProvider.isLoadingSlots
                                   ? const Center(
@@ -221,33 +246,35 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                                   ),
                                 ),
                               )
-                                  : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Morning slots
-                                  if (morningSlots.isNotEmpty) ...[
-                                    _buildSectionTitle('Morning'),
-                                    SizedBox(height: screenHeight * 0.008),
-                                    ...morningSlots.map((slot) => _buildSlotTile(slot, screenWidth)),
-                                    SizedBox(height: screenHeight * 0.012),
-                                  ],
+                                  : SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Morning slots
+                                    if (morningSlots.isNotEmpty) ...[
+                                      _buildSectionTitle('Morning'),
+                                      SizedBox(height: screenHeight * 0.008),
+                                      ...morningSlots.map((slot) => _buildSlotTile(slot, screenWidth)),
+                                      SizedBox(height: screenHeight * 0.012),
+                                    ],
 
-                                  // Afternoon slots
-                                  if (afternoonSlots.isNotEmpty) ...[
-                                    _buildSectionTitle('After noon'),
-                                    SizedBox(height: screenHeight * 0.008),
-                                    ...afternoonSlots.map((slot) => _buildSlotTile(slot, screenWidth)),
-                                    SizedBox(height: screenHeight * 0.012),
-                                  ],
+                                    // Afternoon slots
+                                    if (afternoonSlots.isNotEmpty) ...[
+                                      _buildSectionTitle('After noon'),
+                                      SizedBox(height: screenHeight * 0.008),
+                                      ...afternoonSlots.map((slot) => _buildSlotTile(slot, screenWidth)),
+                                      SizedBox(height: screenHeight * 0.012),
+                                    ],
 
-                                  // Evening slots
-                                  if (eveningSlots.isNotEmpty) ...[
-                                    _buildSectionTitle('Evening'),
-                                    SizedBox(height: screenHeight * 0.008),
-                                    ...eveningSlots.map((slot) => _buildSlotTile(slot, screenWidth)),
+                                    // Evening slots
+                                    if (eveningSlots.isNotEmpty) ...[
+                                      _buildSectionTitle('Evening'),
+                                      SizedBox(height: screenHeight * 0.008),
+                                      ...eveningSlots.map((slot) => _buildSlotTile(slot, screenWidth)),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             ),
                           ],

@@ -55,7 +55,7 @@ class ActiveSubscriptionModel {
   final String id;
   final String planId;
   final String type; // single_gym or multi_gym
-  final String duration; // 1_month, 3_months, etc.
+  final String duration; // daily, weekly, monthly, quarterly, half_yearly, yearly
   final String durationLabel; // "1 Month", "3 Months"
   final String? gymId;
   final String? gymName;

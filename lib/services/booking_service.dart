@@ -76,7 +76,7 @@ class BookingService {
     final url = Uri.parse("$baseUrl/gyms/$gymId/services/$serviceId/time-slots")
         .replace(queryParameters: {
       'date': date,
-      'slot_count': slotCount.toString(),
+      'hours': slotCount.toString(),
     });
 
     debugPrint("✅ Get Time Slots API → $url");
@@ -293,6 +293,7 @@ class BookingService {
       if (bookingFor != null) "booking_for": bookingFor,
       "amount": amount,
       "duration": duration,
+      "membership_type": duration,
       if (planId != null) "plan_id": planId,
       "payment_method": "razorpay",
     };

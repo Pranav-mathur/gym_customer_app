@@ -14,10 +14,45 @@ class SuccessScreen extends StatelessWidget {
     this.isFromBookingsList = false,
   });
 
+  // Calculate time slot label from start_time and hours
+  String _calculateTimeSlot(String? startTime, int? hours) {
+    if (startTime == null || hours == null) return 'N/A';
+
+    try {
+      final start = DateTime.parse(startTime);
+      final end = start.add(Duration(hours: hours));
+
+      return '${_formatTime(start)} - ${_formatTime(end)}';
+    } catch (e) {
+      return 'N/A';
+    }
+  }
+
+  // Format DateTime to 12-hour format with AM/PM
+  String _formatTime(DateTime time) {
+    int hour = time.hour;
+    String period = hour >= 12 ? 'PM' : 'AM';
+
+    if (hour > 12) {
+      hour = hour - 12;
+    } else if (hour == 0) {
+      hour = 12;
+    }
+
+    String minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute $period';
+  }
+
   // Convert API response to BookingModel
   BookingModel? _getBookingFromProvider(BuildContext context) {
     final details = context.watch<BookingProvider>().currentBookingDetails;
     if (details == null) return null;
+
+    // Calculate time slot from start_time and hours
+    final calculatedTimeSlot = _calculateTimeSlot(
+      details['start_time'],
+      details['hours'],
+    );
 
     return BookingModel(
       id: details['id'] ?? '',
@@ -30,11 +65,11 @@ class SuccessScreen extends StatelessWidget {
           : BookingStatus.pending,
       serviceId: details['service_id'] ?? '',
       serviceName: details['service_name'] ?? '',
-      slots: details['slots'] ?? 1,
+      slots: details['hours'] ?? details['slots'] ?? 1,
       bookingDate: details['booking_date'] != null
           ? DateTime.parse(details['booking_date'])
           : DateTime.now(),
-      timeSlot: details['time_slot'] ?? '',
+      timeSlot: calculatedTimeSlot,
       bookingFor: details['booking_for'] ?? '',
       amount: (details['amount'] ?? 0).toDouble(),
       visitingFee: (details['visiting_fee'] ?? 0).toDouble(),
@@ -84,6 +119,10 @@ class SuccessScreen extends StatelessWidget {
       );
     }
 
+    // Check payment status
+    final paymentStatus = booking.paymentStatus?.toLowerCase() ?? '';
+    final isPaymentSuccess = paymentStatus == 'completed' || paymentStatus == 'success';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -114,23 +153,23 @@ class SuccessScreen extends StatelessWidget {
                 ),
                 AppSpacing.h16,
 
-                // Success icon
+                // Success/Failed icon
                 Container(
                   width: 60,
                   height: 60,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryGreen,
+                  decoration: BoxDecoration(
+                    color: isPaymentSuccess ? AppColors.primaryGreen : AppColors.error,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check,
-                    color: AppColors.primaryDark,
+                  child: Icon(
+                    isPaymentSuccess ? Icons.check : Icons.close,
+                    color: isPaymentSuccess ? AppColors.primaryDark : Colors.white,
                     size: 32,
                   ),
                 ),
                 AppSpacing.h16,
                 Text(
-                  'Order Confirmed',
+                  isPaymentSuccess ? 'Order Confirmed' : 'Payment Failed',
                   style: AppTextStyles.heading3,
                 ),
                 AppSpacing.h24,
@@ -187,11 +226,11 @@ class SuccessScreen extends StatelessWidget {
                       ),
                       AppSpacing.h12,
 
-                      // Slots row
+                      // Duration row
                       _buildInfoRow(
                         Icons.schedule,
                         'Duration',
-                        '${booking.slots} ${booking.slots == 1 ? 'slot' : 'slots'}',
+                        '${booking.slots} ${booking.slots == 1 ? 'hour' : 'hours'}',
                       ),
                     ],
                   ),
