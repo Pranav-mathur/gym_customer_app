@@ -412,7 +412,16 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                 child: PrimaryButton(
                   text: 'Book Gym Membership',
                   onPressed: () {
-                    _showBusinessHoursSheet();
+                    {
+                      Navigator.pop(context); // Close bottom sheet
+                      // Navigate to subscription screen with gym data
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SubscriptionScreen(gym: _gym!),
+                        ),
+                      );
+                    }
                   },
                 ),
               ),

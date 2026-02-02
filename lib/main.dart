@@ -99,30 +99,19 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF05110B),
+    return Scaffold(
+      backgroundColor: const Color(0xFF05110B),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.fitness_center,
-              size: 64,
-              color: Color(0xFFA1E433),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'BookMyFit',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ],
+        child: Image.asset(
+          'assets/images/BookMyfIT.png',
+          width: 300,
+          height: 300,
+          fit: BoxFit.contain,
         ),
       ),
     );
   }
+
 }
