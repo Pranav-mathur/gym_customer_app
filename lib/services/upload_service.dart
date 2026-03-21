@@ -5,7 +5,26 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 class UploadService {
-  final String baseUrl = "http://13.49.66.20:3000/api/v1";
+  final String baseUrl = "http://13.60.180.100:5000/api/v1";
+
+  /// Returns MIME type based on file extension
+  String _getMimeType(String fileName) {
+    final ext = path.extension(fileName).toLowerCase();
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.mp4': 'video/mp4',
+      '.mov': 'video/quicktime',
+      '.avi': 'video/x-msvideo',
+      '.webm': 'video/webm',
+      '.mpeg': 'video/mpeg',
+      '.mpg': 'video/mpeg',
+    };
+    return mimeTypes[ext] ?? 'application/octet-stream';
+  }
 
   /// Upload file using presigned URL approach
   /// Returns the final uploaded file URL
@@ -15,19 +34,18 @@ class UploadService {
   }) async {
     try {
       final fileName = path.basename(file.path);
-      debugPrint("✅ Uploading file: $fileName");
+      final mimeType = _getMimeType(fileName);  // 👈 detect MIME type
+      debugPrint("✅ Uploading file: $fileName (type: $mimeType)");
 
-      // Read file as bytes
       final fileBytes = await file.readAsBytes();
 
-      // Call presign API
-      final url = Uri.parse("$baseUrl/uploads/presign");
+      final url = Uri.parse("$baseUrl/upload/image");
 
       final response = await http.post(
         url,
         headers: {
           "Authorization": "Bearer $token",
-          "Content-Type": "application/octet-stream",
+          "Content-Type": mimeType,  // 👈 send correct MIME type
           "x-file-name": fileName,
         },
         body: fileBytes,
@@ -39,16 +57,13 @@ class UploadService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final result = jsonDecode(response.body);
 
-        // Extract uploaded URL from response
-        // Adjust this based on actual API response structure
         String? uploadedUrl;
 
         if (result['success'] == true) {
-          // Try different possible response structures
           uploadedUrl = result['data']?['view_url'] ??
               result['data']?['fileUrl'] ??
               result['data']?['uploadUrl'] ??
-              result['url'] ??
+              result['data']['url'] ??
               result['fileUrl'];
         }
 

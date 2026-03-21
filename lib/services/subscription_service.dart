@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 
 class SubscriptionService {
-  final String baseUrl = "http://13.49.66.20:5000/api/v1";
+  final String baseUrl = "http://13.60.180.100:5000/api/v1";
 
   // Get active subscriptions
   Future<List<ActiveSubscriptionModel>> getActiveSubscriptions({

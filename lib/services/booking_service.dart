@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 
 class BookingService {
-  final String baseUrl = "http://13.49.66.20:5000/api/v1";
+  final String baseUrl = "http://13.60.180.100:5000/api/v1";
 
   /// Get user bookings
   /// GET /bookings?status=all&type=all&page=1&limit=20

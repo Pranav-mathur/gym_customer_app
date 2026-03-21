@@ -6,7 +6,7 @@ import '../models/models.dart';
 
 class HomeService {
   // Update this with your actual base URL
-  final String baseUrl = "http://13.49.66.20:5000/api/v1";
+  final String baseUrl = "http://13.60.180.100:5000/api/v1";
 
   Future<List<GymModel>> fetchGyms({
     required String token,
@@ -117,7 +117,7 @@ class HomeService {
 
   Future<List<BannerModel>> fetchBanners() async {
     // Banner API uses different base URL
-    final uri = Uri.parse("http://ec2-13-49-66-20.eu-north-1.compute.amazonaws.com:3000/api/v1/uploads/documents");
+    final uri = Uri.parse("http://13.60.180.100:5000/api/v1/uploads/documents");
 
     debugPrint("✅ Fetch Banners API → $uri");
 

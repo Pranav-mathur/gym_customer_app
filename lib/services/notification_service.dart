@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/notification_model.dart';
 
 class NotificationService {
-  final String baseUrl = "http://13.49.66.20:5000/api/v1";
+  final String baseUrl = "http://13.60.180.100:5000/api/v1";
 
   Future<NotificationResponse> getNotifications({
     required String token,

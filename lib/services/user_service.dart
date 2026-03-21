@@ -5,7 +5,7 @@ import '../models/user_model.dart';
 
 class UserService {
   // Update this with your actual base URL
-  final String baseUrl = "http://13.49.66.20:5000/api/v1";
+  final String baseUrl = "http://13.60.180.100:5000/api/v1";
 
   // Update user profile
   Future<Map<String, dynamic>> updateProfile({
