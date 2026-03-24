@@ -116,8 +116,7 @@ class HomeService {
   }
 
   Future<List<BannerModel>> fetchBanners() async {
-    // Banner API uses different base URL
-    final uri = Uri.parse("http://13.60.180.100:5000/api/v1/uploads/documents");
+    final uri = Uri.parse("$baseUrl/banners");
 
     debugPrint("✅ Fetch Banners API → $uri");
 
@@ -146,6 +145,43 @@ class HomeService {
       debugPrint("❌ Fetch Banners API Error: $e");
       // Return empty list instead of throwing error to prevent blocking UI
       return [];
+    }
+  }
+
+  /// GET /memberships/check/:gym_id
+  /// Returns whether the authenticated user has an active membership for this gym.
+  Future<MembershipStatusModel> checkMembershipStatus({
+    required String token,
+    required String gymId,
+  }) async {
+    final uri = Uri.parse("$baseUrl/memberships/check/$gymId");
+
+    debugPrint("✅ Check Membership Status API → $uri");
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      debugPrint("✅ Check Membership Status: \${response.statusCode}");
+      debugPrint("✅ Check Membership Body: \${response.body}");
+
+      final result = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && result['success'] == true) {
+        return MembershipStatusModel.fromJson(result);
+      } else {
+        throw Exception(result['message'] ?? "Failed to check membership status");
+      }
+    } catch (e) {
+      debugPrint("❌ Check Membership Status Error: $e");
+      if (e is Exception) rethrow;
+      throw Exception("Network error. Please check your connection.");
     }
   }
 }

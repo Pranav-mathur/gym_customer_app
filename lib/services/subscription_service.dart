@@ -6,7 +6,8 @@ import '../models/models.dart';
 class SubscriptionService {
   final String baseUrl = "http://13.60.180.100:5000/api/v1";
 
-  // Get active subscriptions
+  // ─── Active Subscriptions ────────────────────────────────────────────────
+
   Future<List<ActiveSubscriptionModel>> getActiveSubscriptions({
     required String token,
   }) async {
@@ -31,13 +32,15 @@ class SubscriptionService {
         final result = jsonDecode(response.body);
 
         if (result['success'] == true && result['data'] != null) {
-          final subscriptionsData = result['data']['subscriptions'] as List<dynamic>;
+          final subscriptionsData =
+          result['data']['subscriptions'] as List<dynamic>;
 
           return subscriptionsData
               .map((sub) => ActiveSubscriptionModel.fromJson(sub))
               .toList();
         } else {
-          throw Exception(result['message'] ?? "Failed to fetch subscriptions");
+          throw Exception(
+              result['message'] ?? "Failed to fetch subscriptions");
         }
       } else {
         final result = jsonDecode(response.body);
@@ -48,15 +51,65 @@ class SubscriptionService {
       rethrow;
     }
   }
+
+  // ─── Multi-Gym Pricing ───────────────────────────────────────────────────
+
+  /// GET /memberships/multi-gym-pricing
+  /// Returns a list of [MultiGymPricingModel] for all 4 duration tiers.
+  Future<List<MultiGymPricingModel>> fetchMultiGymPricing({
+    required String token,
+  }) async {
+    final url = Uri.parse("$baseUrl/memberships/multi-gym-pricing");
+
+    debugPrint("✅ Fetch Multi-Gym Pricing API → $url");
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      debugPrint("✅ Multi-Gym Pricing Status: ${response.statusCode}");
+      debugPrint("✅ Multi-Gym Pricing Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
+
+        if (result['success'] == true && result['data'] != null) {
+          final pricingList = result['data']['pricing'] as List<dynamic>;
+
+          return pricingList
+              .map((item) =>
+              MultiGymPricingModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        } else {
+          throw Exception(
+              result['message'] ?? "Failed to fetch multi-gym pricing");
+        }
+      } else {
+        final result = jsonDecode(response.body);
+        throw Exception(
+            result['message'] ?? "Failed to fetch multi-gym pricing");
+      }
+    } catch (e) {
+      debugPrint("❌ Fetch Multi-Gym Pricing Error: $e");
+      rethrow;
+    }
+  }
 }
 
-// Active Subscription Model based on API response
+// ─── Active Subscription Model ───────────────────────────────────────────────
+
 class ActiveSubscriptionModel {
   final String id;
   final String planId;
   final String type; // single_gym or multi_gym
-  final String duration; // daily, weekly, monthly, quarterly, half_yearly, yearly
-  final String durationLabel; // "1 Month", "3 Months"
+  final String duration;
+  final String durationLabel;
   final String? gymId;
   final String? gymName;
   final String? gymAddress;

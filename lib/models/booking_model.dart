@@ -241,3 +241,110 @@ class SubscriptionModel {
     };
   }
 }
+
+/// Maps the response from GET /memberships/multi-gym-pricing
+class MultiGymPricingModel {
+  final int durationMonths;
+  final String label;
+  final int basePrice;
+  final int discountPercent;
+  final int discountAmount;
+  final int priceAfterDiscount;
+  final int tax;
+  final int finalPrice;
+  final int perMonth;
+
+  const MultiGymPricingModel({
+    required this.durationMonths,
+    required this.label,
+    required this.basePrice,
+    required this.discountPercent,
+    required this.discountAmount,
+    required this.priceAfterDiscount,
+    required this.tax,
+    required this.finalPrice,
+    required this.perMonth,
+  });
+
+  factory MultiGymPricingModel.fromJson(Map<String, dynamic> json) {
+    return MultiGymPricingModel(
+      durationMonths: json['duration_months'] ?? 1,
+      label: json['label'] ?? '',
+      basePrice: json['base_price'] ?? 0,
+      discountPercent: json['discount_percent'] ?? 0,
+      discountAmount: json['discount_amount'] ?? 0,
+      priceAfterDiscount: json['price_after_discount'] ?? 0,
+      tax: json['tax'] ?? 0,
+      finalPrice: json['final_price'] ?? 0,
+      perMonth: json['per_month'] ?? 0,
+    );
+  }
+
+  /// Maps duration_months to the duration string used by the booking API.
+  static String _toDurationString(int months) {
+    switch (months) {
+      case 1:
+        return '1_month';
+      case 3:
+        return '3_months';
+      case 6:
+        return '6_months';
+      case 12:
+        return '1_year';
+      default:
+        return '${months}_months';
+    }
+  }
+
+  /// Converts to [SubscriptionModel] so it plugs into the existing
+  /// booking flow without any other changes.
+  SubscriptionModel toSubscriptionModel() {
+    return SubscriptionModel(
+      id: 'multi_gym_${durationMonths}m',
+      type: 'multi_gym',
+      duration: _toDurationString(durationMonths),
+      durationLabel: label,
+      // final_price is the amount the user pays
+      price: finalPrice,
+      // show original base_price as crossed-out only when a discount exists
+      originalPrice: discountPercent > 0 ? basePrice : null,
+    );
+  }
+}
+
+/// Maps the response from GET /memberships/check/:gym_id
+class MembershipStatusModel {
+  final bool isMember;
+  final String? membershipType; // "single_gym" | "multi_gym" | null
+  final String? endDate;        // "2026-04-23" | null
+  final String? bookingId;
+
+  const MembershipStatusModel({
+    required this.isMember,
+    this.membershipType,
+    this.endDate,
+    this.bookingId,
+  });
+
+  factory MembershipStatusModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? json;
+    return MembershipStatusModel(
+      isMember: data['is_member'] ?? false,
+      membershipType: data['membership_type'],
+      endDate: data['end_date'],
+      bookingId: data['booking_id'],
+    );
+  }
+
+  /// Human-readable label for the active membership type.
+  String get membershipTypeLabel {
+    switch (membershipType) {
+      case 'multi_gym':
+        return 'Multi-Gym';
+      case 'single_gym':
+        return 'Single-Gym';
+      default:
+        return 'Active';
+    }
+  }
+}

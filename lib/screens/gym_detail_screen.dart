@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../core/constants/constants.dart';
 import '../core/widgets/widgets.dart';
 import '../core/utils/formatters.dart';
@@ -26,12 +27,24 @@ class GymDetailScreen extends StatefulWidget {
 class _GymDetailScreenState extends State<GymDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final PageController _imageController = PageController();
-  int _currentImageIndex = 0;
+  int _selectedMediaIndex = 0;
 
   GymModel? _gym;
   bool _isLoading = true;
   String? _error;
+
+  // Membership status for this gym
+  MembershipStatusModel? _membershipStatus;
+  bool _isMembershipChecking = false;
+
+  // Combined list: images first, then videos
+  List<_MediaItem> get _mediaItems {
+    if (_gym == null) return [];
+    return [
+      ..._gym!.images.map((url) => _MediaItem(url: url, isVideo: false)),
+      ..._gym!.videos.map((url) => _MediaItem(url: url, isVideo: true)),
+    ];
+  }
 
   @override
   void initState() {
@@ -59,6 +72,8 @@ class _GymDetailScreenState extends State<GymDetailScreen>
           _gym = gym;
           _isLoading = false;
         });
+        // Fire membership check in background after gym loads
+        _checkMembershipStatus();
       }
     } catch (e) {
       if (mounted) {
@@ -70,10 +85,36 @@ class _GymDetailScreenState extends State<GymDetailScreen>
     }
   }
 
+  Future<void> _checkMembershipStatus() async {
+    if (_gym == null) return;
+
+    final auth = context.read<AuthProvider>();
+    if (auth.token == null) return;
+
+    setState(() => _isMembershipChecking = true);
+
+    try {
+      final status = await HomeService().checkMembershipStatus(
+        token: auth.token!,
+        gymId: _gym!.id,
+      );
+      if (mounted) {
+        setState(() {
+          _membershipStatus = status;
+          _isMembershipChecking = false;
+        });
+        debugPrint("✅ Membership status for \${_gym!.name}: isMember=\${status.isMember}, type=\${status.membershipType}");
+      }
+    } catch (e) {
+      // Non-fatal — button stays enabled if check fails
+      if (mounted) setState(() => _isMembershipChecking = false);
+      debugPrint("⚠️ Membership check failed (non-fatal): $e");
+    }
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
-    _imageController.dispose();
     super.dispose();
   }
 
@@ -227,84 +268,127 @@ class _GymDetailScreenState extends State<GymDetailScreen>
                     ),
                     AppSpacing.h16,
 
-                    // Images
-                    SizedBox(
-                      height: 200,
-                      child: PageView.builder(
-                        controller: _imageController,
-                        onPageChanged: (index) {
-                          setState(() => _currentImageIndex = index);
-                        },
-                        itemCount: _gym!.images.isEmpty ? 1 : _gym!.images.length,
-                        itemBuilder: (context, index) {
-                          return Container(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: AppDimensions.screenPaddingH,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceLight,
-                              borderRadius: BorderRadius.circular(16),
-                              // TODO: Add actual images
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.fitness_center,
-                                size: 60,
-                                color: AppColors.textSecondary,
+                    // Main media viewer
+                    if (_mediaItems.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.screenPaddingH,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: SizedBox(
+                            height: 200,
+                            width: double.infinity,
+                            child: _mediaItems[_selectedMediaIndex].isVideo
+                                ? _GymVideoPlayer(
+                              key: ValueKey(_mediaItems[_selectedMediaIndex].url),
+                              url: _mediaItems[_selectedMediaIndex].url,
+                            )
+                                : Image.network(
+                              _mediaItems[_selectedMediaIndex].url,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: AppColors.surfaceLight,
+                                child: const Center(
+                                  child: Icon(Icons.broken_image, size: 48, color: AppColors.textSecondary),
+                                ),
                               ),
+                              loadingBuilder: (_, child, progress) {
+                                if (progress == null) return child;
+                                return Container(
+                                  color: AppColors.surfaceLight,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.primaryGreen,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    AppSpacing.h12,
-
-                    // Image indicators
-                    if (_gym!.images.length > 1)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          _gym!.images.length,
-                              (index) => Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _currentImageIndex == index
-                                  ? AppColors.primaryGreen
-                                  : AppColors.border,
+                          ),
+                        ),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.screenPaddingH,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            height: 200,
+                            color: AppColors.surfaceLight,
+                            child: const Center(
+                              child: Icon(Icons.fitness_center, size: 60, color: AppColors.textSecondary),
                             ),
                           ),
                         ),
                       ),
-                    AppSpacing.h8,
+                    AppSpacing.h12,
 
-                    // Thumbnail images
-                    SizedBox(
-                      height: 60,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.screenPaddingH,
+                    // Thumbnail strip (only shown when more than 1 media item)
+                    if (_mediaItems.length > 1)
+                      SizedBox(
+                        height: 64,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppDimensions.screenPaddingH,
+                          ),
+                          itemCount: _mediaItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _mediaItems[index];
+                            final isSelected = index == _selectedMediaIndex;
+                            return GestureDetector(
+                              onTap: () => setState(() => _selectedMediaIndex = index),
+                              child: Container(
+                                width: 64,
+                                height: 64,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: isSelected
+                                      ? Border.all(color: AppColors.primaryGreen, width: 2)
+                                      : Border.all(color: AppColors.border, width: 1),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(7),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      item.isVideo
+                                          ? Container(color: AppColors.surfaceLight)
+                                          : Image.network(
+                                        item.url,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            Container(color: AppColors.surfaceLight),
+                                      ),
+                                      if (item.isVideo)
+                                        Center(
+                                          child: Container(
+                                            width: 28,
+                                            height: 28,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primaryGreen.withOpacity(0.85),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.play_arrow,
+                                              size: 18,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        itemCount: 5,
-                        itemBuilder: (context, index) {
-                          return Container(
-                            width: 60,
-                            height: 60,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceLight,
-                              borderRadius: BorderRadius.circular(8),
-                              border: index == _currentImageIndex
-                                  ? Border.all(color: AppColors.primaryGreen, width: 2)
-                                  : null,
-                            ),
-                          );
-                        },
                       ),
-                    ),
                     AppSpacing.h16,
 
                     // About Us
@@ -409,20 +493,65 @@ class _GymDetailScreenState extends State<GymDetailScreen>
               ),
               child: SafeArea(
                 top: false,
-                child: PrimaryButton(
-                  text: 'Book Gym Membership',
-                  onPressed: () {
-                    {
-                      Navigator.pop(context); // Close bottom sheet
-                      // Navigate to subscription screen with gym data
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SubscriptionScreen(gym: _gym!),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Active membership badge — shown when user is already a member
+                    if (_membershipStatus?.isMember == true) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                      );
-                    }
-                  },
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.primaryGreen.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.verified_rounded,
+                              color: AppColors.primaryGreen,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${_membershipStatus!.membershipTypeLabel} Membership Active'
+                                  '${_membershipStatus!.endDate != null ? ' · Expires ${_membershipStatus!.endDate}' : ''}',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primaryGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    PrimaryButton(
+                      text: _membershipStatus?.isMember == true
+                          ? 'Already Subscribed'
+                          : 'Book Gym Membership',
+                      isLoading: _isMembershipChecking,
+                      isEnabled: _membershipStatus?.isMember != true,
+                      onPressed: _membershipStatus?.isMember == true
+                          ? null
+                          : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SubscriptionScreen(gym: _gym!),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -603,6 +732,9 @@ class _GymDetailScreenState extends State<GymDetailScreen>
   }
 
   void _showBusinessHoursSheet() {
+    // If already a member, don't allow navigating to subscription from here either
+    final isMember = _membershipStatus?.isMember == true;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -610,9 +742,10 @@ class _GymDetailScreenState extends State<GymDetailScreen>
       builder: (_) => BusinessHoursSheet(
         gymName: _gym!.name,
         businessHours: _gym!.businessHours,
-        onContinue: () {
+        onContinue: isMember
+            ? () => Navigator.pop(context) // just close sheet — already subscribed
+            : () {
           Navigator.pop(context); // Close bottom sheet
-          // Navigate to subscription screen with gym data
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -621,6 +754,108 @@ class _GymDetailScreenState extends State<GymDetailScreen>
           );
         },
       ),
+    );
+  }
+}
+
+// Simple data class representing one media item (image or video)
+class _MediaItem {
+  final String url;
+  final bool isVideo;
+  const _MediaItem({required this.url, required this.isVideo});
+}
+
+// Inline video player widget — manages VideoPlayerController lifecycle
+class _GymVideoPlayer extends StatefulWidget {
+  final String url;
+  const _GymVideoPlayer({super.key, required this.url});
+
+  @override
+  State<_GymVideoPlayer> createState() => _GymVideoPlayerState();
+}
+
+class _GymVideoPlayerState extends State<_GymVideoPlayer> {
+  late VideoPlayerController _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    try {
+      await _controller.initialize();
+      if (mounted) setState(() => _isInitialized = true);
+    } catch (e) {
+      debugPrint('❌ Video player init error: $e');
+      if (mounted) setState(() => _hasError = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        color: AppColors.surfaceLight,
+        child: const Center(
+          child: Icon(Icons.videocam_off, size: 48, color: AppColors.textSecondary),
+        ),
+      );
+    }
+    if (!_isInitialized) {
+      return Container(
+        color: AppColors.surfaceLight,
+        child: const Center(
+          child: CircularProgressIndicator(color: AppColors.primaryGreen, strokeWidth: 2),
+        ),
+      );
+    }
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Video fills the container maintaining aspect ratio
+        SizedBox.expand(
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: _controller.value.size.width,
+              height: _controller.value.size.height,
+              child: VideoPlayer(_controller),
+            ),
+          ),
+        ),
+        // Play/Pause button overlay
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _controller.value.isPlaying ? _controller.pause() : _controller.play();
+            });
+          },
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.55),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

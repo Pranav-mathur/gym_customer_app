@@ -21,7 +21,7 @@ class BannerModel {
       lastModified: json['last_modified'] != null
           ? DateTime.parse(json['last_modified'])
           : DateTime.now(),
-      viewUrl: json['view_url'] ?? '',
+      viewUrl: json['url'] ?? json['view_url'] ?? '',
     );
   }
 
@@ -57,7 +57,7 @@ class BannerResponse {
 
   factory BannerResponse.fromJson(Map<String, dynamic> json) {
     final data = json['data'];
-    final documents = data?['documents'] as List<dynamic>? ?? [];
+    final documents = data?['banners'] as List<dynamic>? ?? [];
 
     return BannerResponse(
       success: json['success'] ?? false,

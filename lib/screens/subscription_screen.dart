@@ -35,6 +35,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _selectedType = widget.gym != null ? 'single_gym' : 'multi_gym';
+
+    // Fetch multi-gym pricing from API as early as possible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SubscriptionProvider>().fetchMultiGymPricing();
+    });
   }
 
   @override
@@ -223,7 +228,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         child: Consumer<BookingProvider>(
           builder: (context, bookingProvider, child) {
             // Get plans
+            final subscriptionProvider = context.watch<SubscriptionProvider>();
             List<SubscriptionModel> plans;
+
             if (_selectedType == 'single_gym' && widget.gym != null) {
               plans = widget.gym!.membershipFees
                   .map((fee) => fee.toSubscriptionModel(
@@ -234,7 +241,63 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             } else if (_selectedType == 'single_gym' && widget.gym == null) {
               plans = [];
             } else {
-              plans = bookingProvider.getPlansForType(_selectedType);
+              // multi_gym — sourced from API via SubscriptionProvider
+              plans = subscriptionProvider.multiGymPlans;
+            }
+
+            // Show loading spinner while multi-gym pricing is being fetched
+            if (_selectedType == 'multi_gym' &&
+                subscriptionProvider.isPricingLoading) {
+              return Column(
+                children: [
+                  _buildAppBar(context),
+                  const Expanded(
+                    child: Center(
+                      child: CircularProgressIndicator(
+                          color: AppColors.primaryGreen),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            // Show error + retry for multi-gym pricing fetch failure
+            if (_selectedType == 'multi_gym' &&
+                subscriptionProvider.pricingError != null &&
+                plans.isEmpty) {
+              return Column(
+                children: [
+                  _buildAppBar(context),
+                  Expanded(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.wifi_off_outlined,
+                                color: AppColors.textSecondary, size: 48),
+                            const SizedBox(height: 16),
+                            Text(
+                              subscriptionProvider.pricingError!,
+                              textAlign: TextAlign.center,
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                  color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: () =>
+                                  subscriptionProvider.fetchMultiGymPricing(
+                                      forceRefresh: true),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
             }
 
             // Empty state
@@ -718,6 +781,33 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
           },
         ),
       ),
+    );
+  }
+
+  /// Shared app-bar widget used by loading and error states.
+  Widget _buildAppBar(BuildContext context) {
+    if (widget.gym != null) {
+      return const CustomAppBar(
+        title: 'Subscription Plans',
+        showBackButton: true,
+      );
+    }
+    return Consumer<LocationProvider>(
+      builder: (context, locationProvider, child) {
+        return HomeAppBar(
+          location: locationProvider.displayLocation,
+          address: locationProvider.displayAddress,
+          onLocationTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SetLocationScreen()),
+          ),
+          onNotificationTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationScreen()),
+          ),
+          onMenuTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+        );
+      },
     );
   }
 

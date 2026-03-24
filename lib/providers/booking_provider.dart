@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
-import '../data/mock_data.dart';
 import '../services/booking_service.dart';
 
 class BookingProvider extends ChangeNotifier {
@@ -131,10 +130,12 @@ class BookingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Returns plans for the given type.
+  /// Multi-gym plans are fetched from the API via [SubscriptionProvider]
+  /// and handled in [SubscriptionScreen] — this returns [] for that type.
+  /// Single-gym plans come from [GymModel.membershipFees] on the detail screen.
   List<SubscriptionModel> getPlansForType(String type) {
-    return MockData.subscriptionPlans
-        .where((plan) => plan.type == type)
-        .toList();
+    return [];
   }
 
   // Load available time slots from API

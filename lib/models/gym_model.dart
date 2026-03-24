@@ -16,6 +16,7 @@ class GymModel {
   final bool is24x7;
   final bool hasTrainer;
   final List<String> images;
+  final List<String> videos;
   final String? aboutUs;
   final List<FacilityModel> facilities;
   final List<ServiceModel> services;
@@ -40,6 +41,7 @@ class GymModel {
     this.is24x7 = false,
     this.hasTrainer = false,
     this.images = const [],
+    this.videos = const [],
     this.aboutUs,
     this.facilities = const [],
     this.services = const [],
@@ -84,6 +86,7 @@ class GymModel {
       is24x7: json['is_24x7'] ?? json['is24x7'] ?? false,
       hasTrainer: json['has_trainer'] ?? json['hasTrainer'] ?? false,
       images: List<String>.from(json['images'] ?? []),
+      videos: List<String>.from(json['videos'] ?? []),
       aboutUs: json['about_us'] ?? json['aboutUs'],
       facilities: (json['facilities'] as List<dynamic>?)
           ?.map((f) => FacilityModel.fromJson(f))
@@ -126,6 +129,7 @@ class GymModel {
       'is_24x7': is24x7,
       'has_trainer': hasTrainer,
       'images': images,
+      'videos': videos,
       'about_us': aboutUs,
       'facilities': facilities.map((f) => f.toJson()).toList(),
       'services': services.map((s) => s.toJson()).toList(),
