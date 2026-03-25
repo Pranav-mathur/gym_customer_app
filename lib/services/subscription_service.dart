@@ -142,12 +142,22 @@ class ActiveSubscriptionModel {
   });
 
   factory ActiveSubscriptionModel.fromJson(Map<String, dynamic> json) {
+    // Derive a human-readable duration label from service_name or type when
+    // the API does not return explicit duration / duration_label fields.
+    final rawType = json['type'] ?? 'single_gym';
+    final serviceName = json['service_name'] as String? ?? '';
+    final fallbackLabel = serviceName.isNotEmpty
+        ? serviceName
+        : (rawType == 'multi_gym_membership' || rawType == 'multi_gym'
+        ? 'Multi-Gym Membership'
+        : 'Membership');
+
     return ActiveSubscriptionModel(
       id: json['id'] ?? '',
-      planId: json['plan_id'] ?? '',
-      type: json['type'] ?? 'single_gym',
-      duration: json['duration'] ?? '',
-      durationLabel: json['duration_label'] ?? '',
+      planId: json['plan_id'] ?? json['booking_number'] ?? '',
+      type: rawType,
+      duration: json['duration'] ?? rawType,
+      durationLabel: json['duration_label'] ?? fallbackLabel,
       gymId: json['gym_id'],
       gymName: json['gym_name'],
       gymAddress: json['gym_address'],

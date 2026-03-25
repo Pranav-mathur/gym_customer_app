@@ -493,65 +493,89 @@ class _GymDetailScreenState extends State<GymDetailScreen>
               ),
               child: SafeArea(
                 top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Active membership badge — shown when user is already a member
-                    if (_membershipStatus?.isMember == true) ...[
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryGreen.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.primaryGreen.withOpacity(0.4),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.verified_rounded,
-                              color: AppColors.primaryGreen,
-                              size: 16,
+                child: Consumer<SubscriptionProvider>(
+                  builder: (context, subProvider, _) {
+                    final hasMultiGym = subProvider.hasActiveMultiGymMembership;
+                    final activeMultiSub = subProvider.activeMultiGymSubscription;
+
+                    // isMember = gym-specific membership OR an active multi-gym membership
+                    final isMember =
+                        _membershipStatus?.isMember == true || hasMultiGym;
+
+                    // Decide badge label
+                    String badgeText = '';
+                    if (_membershipStatus?.isMember == true) {
+                      badgeText =
+                      '${_membershipStatus!.membershipTypeLabel} Membership Active'
+                          '${_membershipStatus!.endDate != null ? ' · Expires ${_membershipStatus!.endDate}' : ""}';
+                    } else if (hasMultiGym && activeMultiSub != null) {
+                      badgeText =
+                      'Multi-Gym Membership Active · ${activeMultiSub.daysRemaining} days remaining';
+                    }
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Active membership badge
+                        if (isMember) ...[
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${_membershipStatus!.membershipTypeLabel} Membership Active'
-                                  '${_membershipStatus!.endDate != null ? ' · Expires ${_membershipStatus!.endDate}' : ''}',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.primaryGreen,
-                                fontWeight: FontWeight.w600,
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppColors.primaryGreen.withOpacity(0.4),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    PrimaryButton(
-                      text: _membershipStatus?.isMember == true
-                          ? 'Already Subscribed'
-                          : 'Book Gym Membership',
-                      isLoading: _isMembershipChecking,
-                      isEnabled: _membershipStatus?.isMember != true,
-                      onPressed: _membershipStatus?.isMember == true
-                          ? null
-                          : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SubscriptionScreen(gym: _gym!),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  color: AppColors.primaryGreen,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    badgeText,
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.primaryGreen,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        );
-                      },
-                    ),
-                  ],
+                        ],
+
+                        PrimaryButton(
+                          text: isMember
+                              ? 'Already Subscribed'
+                              : 'Book Gym Membership',
+                          isLoading: _isMembershipChecking,
+                          isEnabled: !isMember,
+                          onPressed: isMember
+                              ? null
+                              : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    SubscriptionScreen(gym: _gym!),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -732,8 +756,10 @@ class _GymDetailScreenState extends State<GymDetailScreen>
   }
 
   void _showBusinessHoursSheet() {
-    // If already a member, don't allow navigating to subscription from here either
-    final isMember = _membershipStatus?.isMember == true;
+    // Block navigation to subscription if user has a gym-specific OR multi-gym membership
+    final hasMultiGym =
+        context.read<SubscriptionProvider>().hasActiveMultiGymMembership;
+    final isMember = _membershipStatus?.isMember == true || hasMultiGym;
 
     showModalBottomSheet(
       context: context,

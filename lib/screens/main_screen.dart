@@ -11,7 +11,9 @@ import 'notification_screen.dart';
 import 'side_menu_screen.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  final int initialTab;
+
+  const MainScreen({super.key, this.initialTab = 0});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -19,7 +21,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   final List<Widget> _screens = const [
     HomeScreen(showAppBar: false),
@@ -28,11 +30,13 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   // Track previous index to detect tab changes
-  int _previousIndex = 0;
+  late int _previousIndex;
 
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab;
+    _previousIndex = widget.initialTab;
     _loadData();
   }
 
@@ -131,6 +135,10 @@ class _MainScreenState extends State<MainScreen> {
           // Reload home data when switching back to home tab from another tab
           if (index == 0 && _previousIndex != 0) {
             _reloadHomeData();
+          }
+          // Always refresh active subscriptions when switching to Subscription tab
+          if (index == 2) {
+            context.read<SubscriptionProvider>().loadActiveSubscriptions();
           }
           setState(() {
             _previousIndex = _currentIndex;

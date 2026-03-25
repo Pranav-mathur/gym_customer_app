@@ -123,7 +123,7 @@ class _MySubscriptionsScreenState extends State<MySubscriptionsScreen> {
                               Row(
                                 children: [
                                   Icon(
-                                    subscription.type == 'single_gym'
+                                    subscription.type == 'membership'
                                         ? Icons.fitness_center
                                         : Icons.diamond,
                                     color: AppColors.primaryGreen,
@@ -131,7 +131,7 @@ class _MySubscriptionsScreenState extends State<MySubscriptionsScreen> {
                                   ),
                                   AppSpacing.w8,
                                   Text(
-                                    subscription.type == 'single_gym'
+                                    subscription.type == 'membership'
                                         ? 'Single Gym'
                                         : 'Multi-Gym',
                                     style: AppTextStyles.labelMedium.copyWith(

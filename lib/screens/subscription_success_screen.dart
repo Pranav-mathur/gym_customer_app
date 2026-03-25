@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../core/constants/constants.dart';
 import '../core/widgets/widgets.dart';
 import '../providers/booking_provider.dart';
+import 'main_screen.dart';
+import 'my_subscriptions_screen.dart';
 
 class SubscriptionSuccessScreen extends StatelessWidget {
   final String membershipId;
@@ -17,6 +19,18 @@ class SubscriptionSuccessScreen extends StatelessWidget {
     this.gymName,
     this.isPaymentCompleted = true,
   });
+
+  /// Clears the entire navigation stack and lands on MainScreen.
+  /// [initialTab] controls which bottom tab is selected on arrival:
+  ///   0 = Home (Book a Service), 2 = Subscription (View My Memberships)
+  void _goToMain(BuildContext context, {int initialTab = 0}) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => MainScreen(initialTab: initialTab),
+      ),
+          (route) => false, // remove every route below
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,30 +172,22 @@ class SubscriptionSuccessScreen extends StatelessWidget {
                     if (isPaymentCompleted) ...[
                       PrimaryButton(
                         text: 'Book a Service',
-                        onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
-                        },
+                        onPressed: () => _goToMain(context, initialTab: 0),
                       ),
                       const SizedBox(height: 12),
                       SecondaryButton(
                         text: 'View My Memberships',
-                        onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
-                        },
+                        onPressed: () => _goToMain(context, initialTab: 2),
                       ),
                     ] else ...[
                       PrimaryButton(
                         text: 'Try Again',
-                        onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
-                        },
+                        onPressed: () => _goToMain(context, initialTab: 0),
                       ),
                       const SizedBox(height: 12),
                       SecondaryButton(
                         text: 'Go to Home',
-                        onPressed: () {
-                          Navigator.of(context).popUntil((route) => route.isFirst);
-                        },
+                        onPressed: () => _goToMain(context, initialTab: 0),
                       ),
                     ],
                   ],

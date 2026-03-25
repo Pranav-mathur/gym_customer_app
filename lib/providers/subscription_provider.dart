@@ -16,21 +16,39 @@ class SubscriptionProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  /// Returns true if user has any active multi-gym membership.
+  /// Covers both "multi_gym" (legacy) and "multi_gym_membership" (API value).
+  bool get hasActiveMultiGymMembership => _subscriptions.any(
+        (s) =>
+    s.isActive &&
+        (s.type == 'multi_gym_membership' || s.type == 'multi_gym'),
+  );
+
+  /// Returns the active multi-gym subscription, if any.
+  ActiveSubscriptionModel? get activeMultiGymSubscription {
+    try {
+      return _subscriptions.firstWhere(
+            (s) =>
+        s.isActive &&
+            (s.type == 'multi_gym_membership' || s.type == 'multi_gym'),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ─── Multi-Gym Pricing state ─────────────────────────────────────────────
 
   List<MultiGymPricingModel> _multiGymPricing = [];
   bool _isPricingLoading = false;
   String? _pricingError;
-  bool _pricingLoaded = false; // guard to avoid redundant fetches
+  bool _pricingLoaded = false;
 
   bool get isPricingLoading => _isPricingLoading;
   String? get pricingError => _pricingError;
 
-  /// Raw pricing models (useful if you need tax/discount breakdown in the UI).
   List<MultiGymPricingModel> get multiGymPricing => _multiGymPricing;
 
-  /// Converted to [SubscriptionModel] list so the existing booking flow
-  /// works with zero changes.
   List<SubscriptionModel> get multiGymPlans =>
       _multiGymPricing.map((p) => p.toSubscriptionModel()).toList();
 
@@ -76,8 +94,6 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // ─── Multi-Gym Pricing ───────────────────────────────────────────────────
 
-  /// Fetches multi-gym pricing from the API.
-  /// Pass [forceRefresh: true] to bypass the already-loaded guard.
   Future<void> fetchMultiGymPricing({bool forceRefresh = false}) async {
     if (_isPricingLoading) return;
     if (_pricingLoaded && !forceRefresh) return;

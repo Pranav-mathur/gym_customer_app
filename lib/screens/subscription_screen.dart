@@ -36,9 +36,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
     WidgetsBinding.instance.addObserver(this);
     _selectedType = widget.gym != null ? 'single_gym' : 'multi_gym';
 
-    // Fetch multi-gym pricing from API as early as possible
+    // Fetch multi-gym pricing and active subscriptions as early as possible
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SubscriptionProvider>().fetchMultiGymPricing();
+      context.read<SubscriptionProvider>().loadActiveSubscriptions();
     });
   }
 
@@ -653,126 +654,192 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
                   ),
                   child: SafeArea(
                     top: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                    child: Consumer<SubscriptionProvider>(
+                      builder: (context, subProvider, _) {
+                        // Check if multi-gym is already active
+                        final isMultiGymActive = _selectedType == 'multi_gym' &&
+                            subProvider.hasActiveMultiGymMembership;
+                        final activeMultiSub = subProvider.activeMultiGymSubscription;
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Flexible(
-                              child: Text(
-                                _selectedType == 'multi_gym'
-                                    ? 'Multi Gym'
-                                    : widget.gym?.name ?? 'Single Gym',
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                            // ── Active multi-gym banner ──────────────────
+                            if (isMultiGymActive && activeMultiSub != null) ...[
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
                                 ),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryGreen.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: AppColors.primaryGreen.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: AppColors.primaryGreen,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Multi-Gym Membership Active',
+                                            style: AppTextStyles.labelSmall.copyWith(
+                                              color: AppColors.primaryGreen,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Valid until ${AppFormatters.formatDate(activeMultiSub.endDate)} · ${activeMultiSub.daysRemaining} days remaining',
+                                            style: AppTextStyles.caption.copyWith(
+                                              color: AppColors.primaryGreen.withOpacity(0.8),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 10),
-                              child: Text('•', style: TextStyle(fontSize: 16)),
-                            ),
-                            Text(
-                              selectedPlan.durationLabel,
-                              style: AppTextStyles.labelMedium.copyWith(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                            ],
+
+                            // ── Plan summary row ─────────────────────────
+                            if (!isMultiGymActive) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      _selectedType == 'multi_gym'
+                                          ? 'Multi Gym'
+                                          : widget.gym?.name ?? 'Single Gym',
+                                      style: AppTextStyles.labelMedium.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 10),
+                                    child: Text('•', style: TextStyle(fontSize: 16)),
+                                  ),
+                                  Text(
+                                    selectedPlan.durationLabel,
+                                    style: AppTextStyles.labelMedium.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 10),
+                                    child: Text('•', style: TextStyle(fontSize: 16)),
+                                  ),
+                                  Text(
+                                    '₹${selectedPlan.price}',
+                                    style: AppTextStyles.labelMedium.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              SizedBox(height: screenHeight * 0.015),
+                            ],
+
+                            // ── Subscribe / Already Active button ────────
+                            PrimaryButton(
+                              text: isMultiGymActive
+                                  ? 'Already Subscribed'
+                                  : 'Subscribe',
+                              isLoading: bookingProvider.isLoading,
+                              isEnabled: !isMultiGymActive,
+                              onPressed: isMultiGymActive
+                                  ? null
+                                  : () async {
+                                debugPrint('🔵 ========== SUBSCRIBE BUTTON PRESSED ==========');
+                                debugPrint('🔵 Selected plan from UI: ${selectedPlan.durationLabel} - ₹${selectedPlan.price}');
+                                debugPrint('🔵 Subscription type: $_selectedType');
+
+                                final authProvider = context.read<AuthProvider>();
+                                final userName = authProvider.user?.name ?? 'Guest';
+
+                                debugPrint('🔵 Booking for: $userName');
+
+                                bookingProvider.setBookingFor(userName);
+                                bookingProvider.setSubscriptionType(_selectedType);
+                                bookingProvider.selectPlan(selectedPlan);
+
+                                debugPrint('🔵 Provider plan after setting: ${bookingProvider.selectedPlan?.durationLabel}');
+                                debugPrint('🔵 Provider type after setting: ${bookingProvider.subscriptionType}');
+
+                                debugPrint('🔵 Calling createMembershipBooking...');
+                                final response = await bookingProvider.createMembershipBooking(
+                                  gymId: _selectedType == 'single_gym' ? widget.gym?.id : null,
+                                );
+
+                                if (!context.mounted) return;
+
+                                if (response == null) {
+                                  debugPrint('❌ Response is null');
+                                  debugPrint('❌ Error: ${bookingProvider.error}');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(bookingProvider.error ?? 'Failed to create membership'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final booking = response['booking'];
+                                final paymentLinkUrl = booking?['payment_link_url'];
+                                final membershipId = booking?['id'];
+
+                                debugPrint('✅ Response received: $response');
+                                debugPrint('✅ Booking object: $booking');
+                                debugPrint('✅ Payment URL: $paymentLinkUrl');
+                                debugPrint('✅ Membership ID: $membershipId');
+
+                                if (paymentLinkUrl != null && membershipId != null) {
+                                  await _handlePaymentFlow(context, membershipId, paymentLinkUrl);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Invalid payment response'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
+                              },
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 10),
-                              child: Text('•', style: TextStyle(fontSize: 16)),
-                            ),
-                            Text(
-                              '₹${selectedPlan.price}',
-                              style: AppTextStyles.labelMedium.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
+
+                            if (!isMultiGymActive) ...[
+                              SizedBox(height: screenHeight * 0.01),
+                              Text(
+                                'Next renewal: ${_getNextRenewalDate(selectedPlan.duration)}',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontStyle: FontStyle.italic,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
-                        ),
-                        SizedBox(height: screenHeight * 0.015),
-
-                        PrimaryButton(
-                          text: 'Subscribe',
-                          isLoading: bookingProvider.isLoading,
-                          onPressed: () async {
-                            debugPrint('🔵 ========== SUBSCRIBE BUTTON PRESSED ==========');
-                            debugPrint('🔵 Selected plan from UI: ${selectedPlan.durationLabel} - ₹${selectedPlan.price}');
-                            debugPrint('🔵 Subscription type: $_selectedType');
-
-                            final authProvider = context.read<AuthProvider>();
-                            final userName = authProvider.user?.name ?? 'Guest';
-
-                            debugPrint('🔵 Booking for: $userName');
-
-                            // SET EVERYTHING BEFORE API CALL
-                            bookingProvider.setBookingFor(userName);
-                            bookingProvider.setSubscriptionType(_selectedType);
-                            bookingProvider.selectPlan(selectedPlan);  // ✅ CRITICAL: Set plan HERE
-
-                            debugPrint('🔵 Provider plan after setting: ${bookingProvider.selectedPlan?.durationLabel}');
-                            debugPrint('🔵 Provider type after setting: ${bookingProvider.subscriptionType}');
-
-                            // Now call API
-                            debugPrint('🔵 Calling createMembershipBooking...');
-                            final response = await bookingProvider.createMembershipBooking(
-                              gymId: _selectedType == 'single_gym' ? widget.gym?.id : null,
-                            );
-
-                            if (!context.mounted) return;
-
-                            if (response == null) {
-                              debugPrint('❌ Response is null');
-                              debugPrint('❌ Error: ${bookingProvider.error}');
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(bookingProvider.error ?? 'Failed to create membership'),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
-                              return;
-                            }
-
-                            // Extract from booking object
-                            final booking = response['booking'];
-                            final paymentLinkUrl = booking?['payment_link_url'];
-                            final membershipId = booking?['id'];
-
-                            debugPrint('✅ Response received: $response');
-                            debugPrint('✅ Booking object: $booking');
-                            debugPrint('✅ Payment URL: $paymentLinkUrl');
-                            debugPrint('✅ Membership ID: $membershipId');
-
-                            if (paymentLinkUrl != null && membershipId != null) {
-                              // Open payment and wait for return
-                              await _handlePaymentFlow(context, membershipId, paymentLinkUrl);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Invalid payment response'),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                        SizedBox(height: screenHeight * 0.01),
-
-                        Text(
-                          'Next renewal: ${_getNextRenewalDate(selectedPlan.duration)}',
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.textSecondary,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 ),
